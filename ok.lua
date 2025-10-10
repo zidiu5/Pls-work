@@ -1121,3 +1121,167 @@ end)
 EggsTabButton.MouseButton1Click:Connect(function()
     showTab("Eggs")
 end)
+
+
+
+
+
+
+-- ==== Machines Tab ====
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PetsFolder = workspace:WaitForChild("__THINGS"):WaitForChild("Pets")
+local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+
+-- CONFIG
+local EnchantsList = {"Coins", "Fantasy Coins", "Tech Coins", "Royalty", "Diamonds"}
+local AutoEnchantRunning = false
+
+-- Tab-Button erstellen
+local MachinesTabButton = createTabButton("Machines")
+local MachinesContent = createTabContent("Machines")
+
+-- Überschrift
+local header = Instance.new("TextLabel", MachinesContent)
+levelBox.Text = ""
+header.Size = UDim2.new(1,0,0,30)
+header.Position = UDim2.new(0,10,0,10)
+header.BackgroundTransparency = 1
+header.Text = "Machine Controls"
+header.TextColor3 = Color3.fromRGB(255,255,255)
+header.TextSize = 18
+header.Font = Enum.Font.SourceSansBold
+
+-- ScrollFrame für Toggles und LevelBox
+local MachinesScroll = Instance.new("ScrollingFrame", MachinesContent)
+MachinesScroll.Size = UDim2.new(1,0,1,-40)
+MachinesScroll.Position = UDim2.new(0,0,0,40)
+MachinesScroll.BackgroundTransparency = 1
+MachinesScroll.ScrollBarThickness = 6
+MachinesScroll.CanvasSize = UDim2.new(0,0,0,0)
+
+local Layout = Instance.new("UIListLayout", MachinesScroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0,10)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- Toggle + Level Factory
+local EnchantToggles = {}
+local EnchantLevels = {}
+
+for _, enchant in ipairs(EnchantsList) do
+    local frame = Instance.new("Frame", MachinesScroll)
+    frame.Size = UDim2.new(1, -20, 0, 36)
+    frame.BackgroundTransparency = 1
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(0.6,0,1,0)
+    label.Position = UDim2.new(0,0,0,0)
+    label.BackgroundTransparency = 1
+    label.Text = enchant
+    label.TextColor3 = Color3.fromRGB(240,240,240)
+    label.TextSize = 16
+    label.Font = Enum.Font.SourceSans
+
+    local toggleBtn = Instance.new("TextButton", frame)
+    toggleBtn.Size = UDim2.new(0.2,0,1,0)
+    toggleBtn.Position = UDim2.new(0.6,5,0,0)
+    toggleBtn.Text = "OFF"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(120,120,120)
+    toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    toggleBtn.TextSize = 16
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.AutoButtonColor = false
+
+    local state = false
+    toggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        toggleBtn.Text = state and "ON" or "OFF"
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
+        EnchantToggles[enchant] = state
+    end)
+    EnchantToggles[enchant] = false
+
+    local levelBox = Instance.new("TextBox", frame)
+    levelBox.Size = UDim2.new(0.18,0,1,0)
+    levelBox.Position = UDim2.new(0.81,0,0,0)
+    levelBox.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    levelBox.TextColor3 = Color3.fromRGB(255,255,255)
+    levelBox.PlaceholderText = "Lvl"
+    levelBox.ClearTextOnFocus = false
+    levelBox.TextScaled = true
+    levelBox.FocusLost:Connect(function()
+        local num = tonumber(levelBox.Text)
+        if num then
+            EnchantLevels[enchant] = num
+        else
+            levelBox.Text = ""
+            EnchantLevels[enchant] = nil
+        end
+    end)
+end
+
+-- Start/Stop Button
+local startBtn = Instance.new("TextButton", MachinesScroll)
+startBtn.Size = UDim2.new(1, -20, 0, 40)
+startBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+startBtn.Text = "Start AutoEnchant"
+startBtn.TextSize = 16
+startBtn.Font = Enum.Font.SourceSansBold
+
+startBtn.MouseButton1Click:Connect(function()
+    AutoEnchantRunning = not AutoEnchantRunning
+    startBtn.Text = AutoEnchantRunning and "Stop AutoEnchant" or "Start AutoEnchant"
+
+    if AutoEnchantRunning then
+        for _, pet in ipairs(PetsFolder:GetChildren()) do
+            if pet:GetAttribute("Owner") == LocalPlayer.Name then
+                spawn(function()
+                    local petFinished = false
+                    while AutoEnchantRunning and not petFinished do
+                        local petSave = (function()
+                            local SaveData = SaveModule.Get(LocalPlayer)
+                            if not SaveData or not SaveData.Pets then return nil end
+                            for _, p in ipairs(SaveData.Pets) do
+                                if p.uid == (pet:GetAttribute("ID") or pet.Name) then return p end
+                            end
+                            return nil
+                        end)()
+                        if petSave then
+                            local done = false
+                            for enchant, lvl in pairs(EnchantLevels) do
+                                if EnchantToggles[enchant] then
+                                    for _, power in ipairs(petSave.powers) do
+                                        if power[1] == enchant and power[2] == lvl then
+                                            done = true
+                                        end
+                                    end
+                                end
+                            end
+                            if done then
+                                petFinished = true
+                            else
+                                local args = {{{petSave.uid},{false}}}
+                                pcall(function()
+                                    workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):WaitForChild("enchant pet"):InvokeServer(unpack(args))
+                                end)
+                            end
+                        end
+                        task.wait(0.5)
+                    end
+                end)
+            end
+        end
+    end
+end)
+
+-- ScrollFrame CanvasSize automatisch updaten
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    MachinesScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+end)
+
+-- Tab aktivieren beim Klick
+MachinesTabButton.MouseButton1Click:Connect(function()
+    showTab("Machines")
+end)
