@@ -1144,7 +1144,6 @@ local MachinesContent = createTabContent("Machines")
 
 -- Überschrift
 local header = Instance.new("TextLabel", MachinesContent)
-levelBox.Text = ""
 header.Size = UDim2.new(1,0,0,30)
 header.Position = UDim2.new(0,10,0,10)
 header.BackgroundTransparency = 1
@@ -1204,6 +1203,7 @@ for _, enchant in ipairs(EnchantsList) do
     EnchantToggles[enchant] = false
 
     local levelBox = Instance.new("TextBox", frame)
+    levelBox.Text = ""
     levelBox.Size = UDim2.new(0.18,0,1,0)
     levelBox.Position = UDim2.new(0.81,0,0,0)
     levelBox.BackgroundColor3 = Color3.fromRGB(70,70,70)
