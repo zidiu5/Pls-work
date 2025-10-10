@@ -1135,7 +1135,7 @@ local PetsFolder = workspace:WaitForChild("__THINGS"):WaitForChild("Pets")
 local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
 
 -- CONFIG
-local EnchantsList = {"Coins", "Fantasy Coins", "Tech Coins", "Royalty", "Diamonds"}
+local EnchantsList = {"Coins", "Fantasy Coins", "Tech Coins", "Royalty", "Diamonds", "Rng Coins", "Agility", "Charm", "Chests", "Glittering", "Magnet", "Present", "Strength", "Teamwork"}
 local AutoEnchantRunning = false
 
 -- Tab-Button erstellen
