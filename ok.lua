@@ -1636,3 +1636,178 @@ end)
 MiscTabButton.MouseButton1Click:Connect(function()
     showTab("Misc")
 end)
+
+
+
+
+-- INDEX TAB: Missing Pets
+local IndexTab = createTabContent("Index")
+
+local Title = Instance.new("TextLabel", IndexTab)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundTransparency = 1
+Title.Text = "🐾 Missing Pets"
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.TextSize = 20
+Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Position = UDim2.new(0, 10, 0, 5)
+
+local RarityFilter = Instance.new("TextButton", IndexTab)
+RarityFilter.Size = UDim2.new(0.48, -5, 0, 28)
+RarityFilter.Position = UDim2.new(0, 10, 0, 40)
+RarityFilter.BackgroundColor3 = Color3.fromRGB(60,60,60)
+RarityFilter.TextColor3 = Color3.fromRGB(255,255,255)
+RarityFilter.Font = Enum.Font.SourceSansBold
+RarityFilter.TextSize = 14
+RarityFilter.Text = "Filter: All"
+
+local VariantFilter = Instance.new("TextButton", IndexTab)
+VariantFilter.Size = UDim2.new(0.48, -5, 0, 28)
+VariantFilter.Position = UDim2.new(0.5, 0, 0, 40)
+VariantFilter.BackgroundColor3 = Color3.fromRGB(60,60,60)
+VariantFilter.TextColor3 = Color3.fromRGB(255,255,255)
+VariantFilter.Font = Enum.Font.SourceSansBold
+VariantFilter.TextSize = 14
+VariantFilter.Text = "Filter: All"
+
+local ScrollFrame = Instance.new("ScrollingFrame", IndexTab)
+ScrollFrame.Size = UDim2.new(1, -20, 1, -90)
+ScrollFrame.Position = UDim2.new(0, 10, 0, 80)
+ScrollFrame.CanvasSize = UDim2.new(0,0,0,0)
+ScrollFrame.ScrollBarThickness = 6
+ScrollFrame.BackgroundTransparency = 1
+
+local UIList = Instance.new("UIListLayout", ScrollFrame)
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 6)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+local SaveData = SaveModule.Get(LocalPlayer)
+
+local PetIndex = SaveData.Collection or {}
+local rarityMap = { ["1"]="Normal", ["2"]="Gold", ["3"]="Rainbow", ["4"]="DarkMatter" }
+local foundPets = {}
+
+for petID, val in pairs(PetIndex) do
+    local artID, rarityNum = tostring(val):match("^(%d+)%-(%d+)$")
+    if artID and rarityNum then
+        foundPets[tonumber(artID)] = foundPets[tonumber(artID)] or {Normal=false, Gold=false, Rainbow=false, DarkMatter=false}
+        local rarityName = rarityMap[rarityNum]
+        if rarityName then
+            foundPets[tonumber(artID)][rarityName] = true
+        end
+    end
+end
+
+local allPetsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Pets")
+local allPets = {}
+for _, petFolder in ipairs(allPetsFolder:GetChildren()) do
+    local petModule = petFolder:FindFirstChildOfClass("ModuleScript")
+    if petModule then
+        local success, petData = pcall(require, petModule)
+        if success and petData then
+            local petID = tonumber(petFolder.Name:match("^(%d+)")) or 0
+            local name = petData.name or "?"
+            local rarity = petData.rarity or "?"
+            allPets[petID] = {name=name, rarity=rarity}
+        end
+    end
+end
+
+local function getMissingPets()
+    local missingPets = {}
+    for id, petData in pairs(allPets) do
+        local owned = foundPets[id]
+        local missing = {}
+        if owned then
+            for _, variant in ipairs({"Normal","Gold","Rainbow","DarkMatter"}) do
+                if not owned[variant] then table.insert(missing, variant) end
+            end
+        else
+            missing = {"Normal","Gold","Rainbow","DarkMatter"}
+        end
+        if #missing > 0 then
+            table.insert(missingPets, {id=id, name=petData.name, rarity=petData.rarity, missing=table.concat(missing,", ")})
+        end
+    end
+    table.sort(missingPets, function(a,b) return a.id < b.id end)
+    return missingPets
+end
+
+local rarityOptions = {"All","Basic","Rare","Epic","Legendary","Mythical","Exclusive"}
+local variantOptions = {"All","Normal","Gold","Rainbow","DarkMatter"}
+local selectedRarity = "All"
+local selectedVariant = "All"
+
+local function refreshList()
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local missingPets = getMissingPets()
+    for _, pet in ipairs(missingPets) do
+        local rarityPass = (selectedRarity == "All" or pet.rarity == selectedRarity)
+        local variantPass = (selectedVariant == "All" or string.find(pet.missing, selectedVariant))
+        if rarityPass and variantPass then
+            local item = Instance.new("Frame", ScrollFrame)
+            item.Size = UDim2.new(1,-10,0,60)
+            item.BackgroundColor3 = Color3.fromRGB(45,45,45)
+            item.BorderSizePixel = 0
+            item.LayoutOrder = pet.id
+
+            local nameLabel = Instance.new("TextLabel", item)
+            nameLabel.Size = UDim2.new(1,-10,0,20)
+            nameLabel.Position = UDim2.new(0,5,0,5)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = string.format("[%d] %s (%s)", pet.id, pet.name, pet.rarity)
+            nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+            nameLabel.TextSize = 16
+            nameLabel.Font = Enum.Font.SourceSansBold
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            local missingLabel = Instance.new("TextLabel", item)
+            missingLabel.Size = UDim2.new(1,-10,0,20)
+            missingLabel.Position = UDim2.new(0,5,0,30)
+            missingLabel.BackgroundTransparency = 1
+            missingLabel.Text = "❌ Missing Variants: " .. pet.missing
+            missingLabel.TextColor3 = Color3.fromRGB(255,150,150)
+            missingLabel.TextSize = 14
+            missingLabel.Font = Enum.Font.SourceSans
+            missingLabel.TextXAlignment = Enum.TextXAlignment.Left
+        end
+    end
+
+    ScrollFrame.CanvasSize = UDim2.new(0,0,0,UIList.AbsoluteContentSize.Y + 10)
+end
+
+local function setupCycleButton(button, options, setFunc)
+    local index = 1
+    button.Text = "Filter: " .. options[index]
+    button.MouseButton1Click:Connect(function()
+        index = index + 1
+        if index > #options then index = 1 end
+        local value = options[index]
+        button.Text = "Filter: " .. value
+        setFunc(value)
+        refreshList()
+    end)
+end
+
+setupCycleButton(RarityFilter, rarityOptions, function(opt)
+    selectedRarity = opt
+end)
+
+setupCycleButton(VariantFilter, variantOptions, function(opt)
+    selectedVariant = opt
+end)
+
+refreshList()
+
+local IndexTabButton = createTabButton("Index")
+IndexTabButton.MouseButton1Click:Connect(function() showTab("Index") end)
+
