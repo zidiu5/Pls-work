@@ -20,7 +20,7 @@ local Title = Instance.new("TextLabel", MainFrame)
 Title.Name = "Title"
 Title.Size = UDim2.new(1, 0, 0, 38)
 Title.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
-Title.Text = "The only working GUI"
+Title.Text = "NEVER STOP GAMBELING"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 20
 Title.Font = Enum.Font.SourceSansBold
@@ -1811,3 +1811,173 @@ refreshList()
 local IndexTabButton = createTabButton("Index")
 IndexTabButton.MouseButton1Click:Connect(function() showTab("Index") end)
 
+
+
+
+
+
+
+-- Pet Finder Tab 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local allPetsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Pets")
+local PetNames = {}
+local PetIDs = {}
+for _, petFolder in ipairs(allPetsFolder:GetChildren()) do
+    local petModule = petFolder:FindFirstChildOfClass("ModuleScript")
+    if petModule then
+        local success, petData = pcall(require, petModule)
+        if success and petData then
+            local petID = tonumber(petFolder.Name:match("^(%d+)")) or 0
+            local name = petData.name or tostring(petID)
+            PetNames[petID] = name
+            PetIDs[name:lower()] = petID
+        end
+    end
+end
+
+local PetFinderTabButton = createTabButton("Pet Finder")
+local PetFinderContent = createTabContent("Pet Finder")
+
+local header = Instance.new("TextLabel", PetFinderContent)
+header.Size = UDim2.new(1,0,0,30)
+header.Position = UDim2.new(0,10,0,10)
+header.BackgroundTransparency = 1
+header.Text = "Pet Finder 🔍"
+header.TextColor3 = Color3.fromRGB(255,255,255)
+header.TextSize = 18
+header.Font = Enum.Font.SourceSansBold
+
+local PetBox = Instance.new("TextBox", PetFinderContent)
+PetBox.Size = UDim2.new(0.7, -10, 0, 30)
+PetBox.Position = UDim2.new(0,10,0,50)
+PetBox.PlaceholderText = "Pet Name..."
+PetBox.TextColor3 = Color3.fromRGB(255,255,255)
+PetBox.BackgroundColor3 = Color3.fromRGB(60,60,60)
+PetBox.Font = Enum.Font.SourceSans
+PetBox.TextSize = 16
+PetBox.ClearTextOnFocus = false
+
+local FindButton = Instance.new("TextButton", PetFinderContent)
+FindButton.Size = UDim2.new(0.28, -10, 0, 30)
+FindButton.Position = UDim2.new(0.72, 10, 0, 50)
+FindButton.Text = "Find Egg"
+FindButton.BackgroundColor3 = Color3.fromRGB(80,80,80)
+FindButton.TextColor3 = Color3.fromRGB(255,255,255)
+FindButton.Font = Enum.Font.SourceSansBold
+FindButton.TextSize = 16
+
+local ScrollFrame = Instance.new("ScrollingFrame", PetFinderContent)
+ScrollFrame.Size = UDim2.new(1,-20,1,-100)
+ScrollFrame.Position = UDim2.new(0,10,0,90)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 6
+
+local UIList = Instance.new("UIListLayout", ScrollFrame)
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0,5)
+
+local function findEggsForPet(petName)
+    local results = {}
+    local petID = PetIDs[petName:lower()]
+    if not petID then return results end
+
+    local EggsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Eggs")
+    for _, category in ipairs(EggsFolder:GetChildren()) do
+        local categoryName = category.Name
+        for _, eggFolder in ipairs(category:GetChildren()) do
+            local eggModule = eggFolder:FindFirstChildOfClass("ModuleScript")
+            if eggModule then
+                local success, eggData = pcall(require, eggModule)
+                if success and eggData and type(eggData.drops) == "table" then
+                    for _, drop in ipairs(eggData.drops) do
+                        if type(drop) == "table" and tonumber(drop[1]) == petID then
+                            table.insert(results, {
+                                EggName = eggData.displayName or eggFolder.Name,
+                                Hatchable = eggData.hatchable,
+                                Cost = eggData.cost,
+                                Currency = eggData.currency,
+                                Area = eggData.area,
+                                PetID = petID,
+                                Chance = drop[2],
+                                Path = categoryName..", "..eggFolder.Name
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return results
+end
+
+local function refreshResults()
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        child:Destroy()
+    end
+
+    local petName = PetBox.Text
+    if petName == "" then return end
+
+    local eggs = findEggsForPet(petName)
+    if #eggs == 0 then
+        local label = Instance.new("TextLabel", ScrollFrame)
+        label.Size = UDim2.new(1,0,0,25)
+        label.BackgroundTransparency = 1
+        label.Text = "No Eggs found for "..petName
+        label.TextColor3 = Color3.fromRGB(255,150,150)
+        label.Font = Enum.Font.SourceSansBold
+        label.TextSize = 16
+        label.TextXAlignment = Enum.TextXAlignment.Left
+    else
+        for i, egg in ipairs(eggs) do
+            local item = Instance.new("Frame", ScrollFrame)
+            item.Size = UDim2.new(1,0,0,90)
+            item.BackgroundColor3 = Color3.fromRGB(45,45,45)
+            item.BorderSizePixel = 0
+            item.LayoutOrder = i
+
+            local nameLabel = Instance.new("TextLabel", item)
+            nameLabel.Size = UDim2.new(1,-10,0,20)
+            nameLabel.Position = UDim2.new(0,5,0,5)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = "Egg: "..egg.EggName.." | Hatchable: "..tostring(egg.Hatchable)
+            nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+            nameLabel.TextSize = 14
+            nameLabel.Font = Enum.Font.SourceSansBold
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            local infoLabel = Instance.new("TextLabel", item)
+            infoLabel.Size = UDim2.new(1,-10,0,40)
+            infoLabel.Position = UDim2.new(0,5,0,25)
+            infoLabel.BackgroundTransparency = 1
+            infoLabel.Text = string.format("Cost: %s %s | Area: %s | PetID: %d | Chance: %s%%",
+                tostring(egg.Cost), tostring(egg.Currency), tostring(egg.Area), egg.PetID, tostring(egg.Chance))
+            infoLabel.TextColor3 = Color3.fromRGB(200,200,255)
+            infoLabel.TextSize = 14
+            infoLabel.Font = Enum.Font.SourceSans
+            infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            local pathLabel = Instance.new("TextLabel", item)
+            pathLabel.Size = UDim2.new(1,-10,0,20)
+            pathLabel.Position = UDim2.new(0,5,0,65)
+            pathLabel.BackgroundTransparency = 1
+            pathLabel.Text = "Path: "..egg.Path
+            pathLabel.TextColor3 = Color3.fromRGB(180,255,180)
+            pathLabel.TextSize = 14
+            pathLabel.Font = Enum.Font.SourceSans
+            pathLabel.TextXAlignment = Enum.TextXAlignment.Left
+        end
+    end
+
+    ScrollFrame.CanvasSize = UDim2.new(0,0,0,UIList.AbsoluteContentSize.Y+10)
+end
+
+FindButton.MouseButton1Click:Connect(refreshResults)
+
+-- Tab aktivieren beim Klick
+PetFinderTabButton.MouseButton1Click:Connect(function()
+    showTab("Pet Finder")
+end)
