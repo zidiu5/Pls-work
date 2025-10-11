@@ -20,7 +20,7 @@ local Title = Instance.new("TextLabel", MainFrame)
 Title.Name = "Title"
 Title.Size = UDim2.new(1, 0, 0, 38)
 Title.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
-Title.Text = "My Custom GUI"
+Title.Text = "The only working GUI"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 20
 Title.Font = Enum.Font.SourceSansBold
@@ -1450,4 +1450,158 @@ end)
 
 MachinesTabButton.MouseButton1Click:Connect(function()
     showTab("Machines")
+end)
+
+
+
+
+-- ==== Misc Tab ====
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+local Remotes = Workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
+local BuyEggRemote = Remotes:WaitForChild("buy egg")
+local DeletePetsRemote = Remotes:WaitForChild("delete several pets")
+
+-- === Tab-Erstellung ===
+local MiscTabButton = createTabButton("Misc")
+local MiscContent = createTabContent("Misc")
+
+-- === Überschrift ===
+local header = Instance.new("TextLabel", MiscContent)
+header.Size = UDim2.new(1,0,0,30)
+header.Position = UDim2.new(0,10,0,10)
+header.BackgroundTransparency = 1
+header.Text = "Misc Features"
+header.TextColor3 = Color3.fromRGB(255,255,255)
+header.TextSize = 18
+header.Font = Enum.Font.SourceSansBold
+
+-- === ScrollFrame ===
+local MiscScroll = Instance.new("ScrollingFrame", MiscContent)
+MiscScroll.Size = UDim2.new(1,0,1,-40)
+MiscScroll.Position = UDim2.new(0,0,0,40)
+MiscScroll.BackgroundTransparency = 1
+MiscScroll.ScrollBarThickness = 6
+MiscScroll.CanvasSize = UDim2.new(0,0,0,0)
+
+local Layout = Instance.new("UIListLayout", MiscScroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0,10)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- === Auto-Hatch Steuerung ===
+local EggName = "Grim Eggz"
+local TargetPetID = "1215"
+local HatchDelay = 0.3
+local Running = false
+local EggsHatched = 0
+
+local hatchLabel = Instance.new("TextLabel", MiscScroll)
+hatchLabel.Size = UDim2.new(1, -20, 0, 30)
+hatchLabel.BackgroundTransparency = 1
+hatchLabel.TextColor3 = Color3.fromRGB(255,255,255)
+hatchLabel.Text = "Eggs gehatcht: 0"
+hatchLabel.Font = Enum.Font.SourceSans
+hatchLabel.TextSize = 16
+
+local startBtn = Instance.new("TextButton", MiscScroll)
+startBtn.Size = UDim2.new(1, -20, 0, 36)
+startBtn.BackgroundColor3 = Color3.fromRGB(50,200,50)
+startBtn.TextColor3 = Color3.new(1,1,1)
+startBtn.Text = "Start Auto Hatch"
+startBtn.Font = Enum.Font.SourceSansBold
+startBtn.TextSize = 18
+
+local stopBtn = Instance.new("TextButton", MiscScroll)
+stopBtn.Size = UDim2.new(1, -20, 0, 36)
+stopBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+stopBtn.TextColor3 = Color3.new(1,1,1)
+stopBtn.Text = "Stop Auto Hatch"
+stopBtn.Font = Enum.Font.SourceSansBold
+stopBtn.TextSize = 18
+
+-- === Funktionen ===
+local function DeletePet(petUID)
+    local args = {
+        { { {petUID} }, {false} }
+    }
+    DeletePetsRemote:InvokeServer(unpack(args))
+end
+
+local function CheckNewPets()
+    local SaveData = SaveModule.Get(LocalPlayer)
+    if not SaveData or not SaveData.Pets then return end
+    for _, pet in ipairs(SaveData.Pets) do
+        if pet.id == TargetPetID then
+            if not pet.r and not pet.dm then
+                DeletePet(pet.uid)
+            end
+        end
+    end
+end
+
+local function AutoHatchLoop()
+    while Running do
+        local args = {
+            { { EggName, true, false }, { false, false, false } }
+        }
+        BuyEggRemote:InvokeServer(unpack(args))
+        task.wait(0.5)
+        CheckNewPets()
+        EggsHatched += 3
+        hatchLabel.Text = "Eggs hatched: " .. EggsHatched
+        task.wait(HatchDelay)
+    end
+end
+
+-- === Button-Events ===
+startBtn.MouseButton1Click:Connect(function()
+    if not Running then
+        Running = true
+        spawn(AutoHatchLoop)
+    end
+end)
+
+stopBtn.MouseButton1Click:Connect(function()
+    Running = false
+end)
+
+-- === Animation Toggle ===
+local disableAnim = false
+local animToggle = Instance.new("TextButton", MiscScroll)
+animToggle.Size = UDim2.new(1, -20, 0, 36)
+animToggle.BackgroundColor3 = Color3.fromRGB(100,100,100)
+animToggle.TextColor3 = Color3.new(1,1,1)
+animToggle.Text = "Disable Egg Animation: OFF"
+animToggle.Font = Enum.Font.SourceSansBold
+animToggle.TextSize = 16
+
+animToggle.MouseButton1Click:Connect(function()
+    disableAnim = not disableAnim
+    animToggle.Text = "Disable Egg Animation: " .. (disableAnim and "ON" or "OFF")
+    animToggle.BackgroundColor3 = disableAnim and Color3.fromRGB(60,140,60) or Color3.fromRGB(100,100,100)
+
+    for _,v in pairs(getgc(true)) do
+        if typeof(v) == "table" and rawget(v, "OpenEgg") then
+            if disableAnim then
+                v.OpenEgg = function() return end
+                else
+                loadstring("game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, game.JobId)")()
+            end
+        end
+    end
+end)
+
+-- === ScrollFrame automatisch updaten ===
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    MiscScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+end)
+
+-- === Tab aktivieren ===
+MiscTabButton.MouseButton1Click:Connect(function()
+    showTab("Misc")
 end)
