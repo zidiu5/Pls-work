@@ -1455,6 +1455,10 @@ end)
 
 
 
+
+
+
+
 -- ==== Misc Tab ====
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -1493,9 +1497,68 @@ Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Padding = UDim.new(0,10)
 Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- === Auto-Hatch Steuerung ===
-local EggName = "Grim Eggz"
-local TargetPetID = "1215"
+-- === Dropdown Setup ===
+local Options = {
+    { name = "Huge Vampire Bat", egg = "Grim Eggz", id = "1215" },
+    { name = "Huge Mechatronic Robot", egg = "RNG Eggz", id = "2316" },
+    { name = "Ugly Shrek", egg = "Reversed Eggz", id = "1261" },
+}
+
+local selectedOption = Options[1]
+
+-- === GUI Elemente ===
+local dropdown = Instance.new("Frame", MiscScroll)
+dropdown.Size = UDim2.new(1, -20, 0, 36)
+dropdown.BackgroundColor3 = Color3.fromRGB(40,40,40)
+dropdown.BorderSizePixel = 0
+dropdown.ClipsDescendants = true
+
+local selectedLabel = Instance.new("TextButton", dropdown)
+selectedLabel.Size = UDim2.new(1, 0, 0, 36)
+selectedLabel.BackgroundColor3 = Color3.fromRGB(70,70,70)
+selectedLabel.TextColor3 = Color3.new(1,1,1)
+selectedLabel.Font = Enum.Font.SourceSansBold
+selectedLabel.TextSize = 16
+selectedLabel.Text = "Selected: " .. selectedOption.name
+
+local dropdownContainer = Instance.new("Frame", dropdown)
+dropdownContainer.Position = UDim2.new(0,0,0,36)
+dropdownContainer.Size = UDim2.new(1,0,0,#Options * 36)
+dropdownContainer.BackgroundTransparency = 1
+
+local uiList = Instance.new("UIListLayout", dropdownContainer)
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+
+for _,opt in ipairs(Options) do
+    local btn = Instance.new("TextButton", dropdownContainer)
+    btn.Size = UDim2.new(1, 0, 0, 36)
+    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Text = opt.name
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 16
+
+    btn.MouseButton1Click:Connect(function()
+        selectedOption = opt
+        selectedLabel.Text = "Selected: " .. opt.name
+        dropdown:TweenSize(UDim2.new(1, -20, 0, 36), "Out", "Quad", 0.2, true)
+    end)
+end
+
+local expanded = false
+selectedLabel.MouseButton1Click:Connect(function()
+    expanded = not expanded
+    dropdown:TweenSize(
+        expanded and UDim2.new(1, -20, 0, (#Options+1) * 36)
+        or UDim2.new(1, -20, 0, 36),
+        "Out",
+        "Quad",
+        0.2,
+        true
+    )
+end)
+
+-- === Auto Hatch Setup ===
 local HatchDelay = 0.3
 local Running = false
 local EggsHatched = 0
@@ -1536,7 +1599,7 @@ local function CheckNewPets()
     local SaveData = SaveModule.Get(LocalPlayer)
     if not SaveData or not SaveData.Pets then return end
     for _, pet in ipairs(SaveData.Pets) do
-        if pet.id == TargetPetID then
+        if pet.id == selectedOption.id then
             if not pet.r and not pet.dm then
                 DeletePet(pet.uid)
             end
@@ -1547,18 +1610,18 @@ end
 local function AutoHatchLoop()
     while Running do
         local args = {
-            { { EggName, true, false }, { false, false, false } }
+            { { selectedOption.egg, true, false }, { false, false, false } }
         }
         BuyEggRemote:InvokeServer(unpack(args))
         task.wait(0.5)
         CheckNewPets()
         EggsHatched += 3
-        hatchLabel.Text = "Eggs hatched: " .. EggsHatched
+        hatchLabel.Text = "Eggs gehatcht: " .. EggsHatched
         task.wait(HatchDelay)
     end
 end
 
--- === Button-Events ===
+-- === Buttons ===
 startBtn.MouseButton1Click:Connect(function()
     if not Running then
         Running = true
@@ -1572,6 +1635,8 @@ end)
 
 -- === Animation Toggle ===
 local disableAnim = false
+local savedOpenEggFuncs = {}
+
 local animToggle = Instance.new("TextButton", MiscScroll)
 animToggle.Size = UDim2.new(1, -20, 0, 36)
 animToggle.BackgroundColor3 = Color3.fromRGB(100,100,100)
@@ -1587,16 +1652,18 @@ animToggle.MouseButton1Click:Connect(function()
 
     for _,v in pairs(getgc(true)) do
         if typeof(v) == "table" and rawget(v, "OpenEgg") then
-            if disableAnim then
+            if disableAnim and not savedOpenEggFuncs[v] then
+                savedOpenEggFuncs[v] = v.OpenEgg
                 v.OpenEgg = function() return end
-                else
-                loadstring("game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, game.JobId)")()
+            elseif not disableAnim and savedOpenEggFuncs[v] then
+                v.OpenEgg = savedOpenEggFuncs[v]
+                savedOpenEggFuncs[v] = nil
             end
         end
     end
 end)
 
--- === ScrollFrame automatisch updaten ===
+-- === ScrollFrame auto-update ===
 Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     MiscScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
 end)
