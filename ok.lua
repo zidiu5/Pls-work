@@ -1472,6 +1472,7 @@ local Options = {
     { name = "Huge Vampire Bat", egg = "Grim Eggz", id = "1215" },
     { name = "Huge Mechatronic Robot", egg = "RNG Eggz", id = "2316" },
     { name = "Ugly Shrek", egg = "Reversed Eggz", id = "1261" },
+    { name = "Titanic Axolotl", egg = "Axolotl Eggz", id = "12015" },
 }
 
 local selectedOption = Options[1]
