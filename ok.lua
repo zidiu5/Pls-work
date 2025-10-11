@@ -1127,22 +1127,24 @@ end)
 
 
 
--- ==== Machines Tab ====
+
+-- MACHINES TAB
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PetsFolder = workspace:WaitForChild("__THINGS"):WaitForChild("Pets")
 local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+local Remotes = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
 
 -- CONFIG
 local EnchantsList = {"Coins", "Fantasy Coins", "Tech Coins", "Royalty", "Diamonds", "Rng Coins", "Agility", "Charm", "Chests", "Glittering", "Magnet", "Present", "Strength", "Teamwork"}
 local AutoEnchantRunning = false
 
--- Tab-Button erstellen
+-- Tab Setup
 local MachinesTabButton = createTabButton("Machines")
 local MachinesContent = createTabContent("Machines")
 
--- Überschrift
+-- Header
 local header = Instance.new("TextLabel", MachinesContent)
 header.Size = UDim2.new(1,0,0,30)
 header.Position = UDim2.new(0,10,0,10)
@@ -1152,7 +1154,7 @@ header.TextColor3 = Color3.fromRGB(255,255,255)
 header.TextSize = 18
 header.Font = Enum.Font.SourceSansBold
 
--- ScrollFrame für Toggles und LevelBox
+-- ScrollFrame
 local MachinesScroll = Instance.new("ScrollingFrame", MachinesContent)
 MachinesScroll.Size = UDim2.new(1,0,1,-40)
 MachinesScroll.Position = UDim2.new(0,0,0,40)
@@ -1165,9 +1167,17 @@ Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Padding = UDim.new(0,10)
 Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- Toggle + Level Factory
+-- AUTO ENCHANT SECTION 
 local EnchantToggles = {}
 local EnchantLevels = {}
+
+local EnchantHeader = Instance.new("TextLabel", MachinesScroll)
+EnchantHeader.Size = UDim2.new(1, -20, 0, 30)
+EnchantHeader.BackgroundTransparency = 1
+EnchantHeader.Text = "Auto Enchant"
+EnchantHeader.TextColor3 = Color3.fromRGB(255,255,0)
+EnchantHeader.TextSize = 18
+EnchantHeader.Font = Enum.Font.SourceSansBold
 
 for _, enchant in ipairs(EnchantsList) do
     local frame = Instance.new("Frame", MachinesScroll)
@@ -1222,13 +1232,15 @@ for _, enchant in ipairs(EnchantsList) do
     end)
 end
 
--- Start/Stop Button
+-- Start/Stop Button für AutoEnchant
 local startBtn = Instance.new("TextButton", MachinesScroll)
 startBtn.Size = UDim2.new(1, -20, 0, 40)
 startBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
 startBtn.Text = "Start AutoEnchant"
 startBtn.TextSize = 16
 startBtn.Font = Enum.Font.SourceSansBold
+startBtn.TextColor3 = Color3.fromRGB(255,255,255)
+startBtn.Parent = MachinesScroll
 
 startBtn.MouseButton1Click:Connect(function()
     AutoEnchantRunning = not AutoEnchantRunning
@@ -1237,17 +1249,15 @@ startBtn.MouseButton1Click:Connect(function()
     if AutoEnchantRunning then
         for _, pet in ipairs(PetsFolder:GetChildren()) do
             if pet:GetAttribute("Owner") == LocalPlayer.Name then
-                spawn(function()
+                task.spawn(function()
                     local petFinished = false
                     while AutoEnchantRunning and not petFinished do
-                        local petSave = (function()
-                            local SaveData = SaveModule.Get(LocalPlayer)
-                            if not SaveData or not SaveData.Pets then return nil end
-                            for _, p in ipairs(SaveData.Pets) do
-                                if p.uid == (pet:GetAttribute("ID") or pet.Name) then return p end
-                            end
-                            return nil
-                        end)()
+                        local SaveData = SaveModule.Get(LocalPlayer)
+                        if not SaveData or not SaveData.Pets then break end
+                        local petSave
+                        for _, p in ipairs(SaveData.Pets) do
+                            if p.uid == (pet:GetAttribute("ID") or pet.Name) then petSave = p break end
+                        end
                         if petSave then
                             local done = false
                             for enchant, lvl in pairs(EnchantLevels) do
@@ -1264,7 +1274,14 @@ startBtn.MouseButton1Click:Connect(function()
                             else
                                 local args = {{{petSave.uid},{false}}}
                                 pcall(function()
-                                    workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):WaitForChild("enchant pet"):InvokeServer(unpack(args))
+                                    if Remotes:FindFirstChild("enchant pet") then
+                                        local r = Remotes["enchant pet"]
+                                        if r.ClassName == "RemoteFunction" then
+                                            r:InvokeServer(unpack(args))
+                                        else
+                                            r:FireServer(unpack(args))
+                                        end
+                                    end
                                 end)
                             end
                         end
@@ -1276,12 +1293,161 @@ startBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ScrollFrame CanvasSize automatisch updaten
+-- AUTO CRAFT SECTION 
+local CraftHeader = Instance.new("TextLabel", MachinesScroll)
+CraftHeader.Size = UDim2.new(1, -20, 0, 30)
+CraftHeader.BackgroundTransparency = 1
+CraftHeader.Text = "AutoCraft"
+CraftHeader.TextColor3 = Color3.fromRGB(255,200,50)
+CraftHeader.TextSize = 18
+CraftHeader.Font = Enum.Font.SourceSansBold
+
+local PetCountLabel = Instance.new("TextLabel", MachinesScroll)
+PetCountLabel.Size = UDim2.new(1, -20, 0, 25)
+PetCountLabel.BackgroundTransparency = 1
+PetCountLabel.Text = "Pets per Craft (1–6):"
+PetCountLabel.TextColor3 = Color3.fromRGB(255,255,255)
+PetCountLabel.TextSize = 16
+PetCountLabel.Font = Enum.Font.SourceSans
+
+local PetCountBox = Instance.new("TextBox", MachinesScroll)
+PetCountBox.Size = UDim2.new(1, -20, 0, 30)
+PetCountBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+PetCountBox.TextColor3 = Color3.fromRGB(255,255,255)
+PetCountBox.Font = Enum.Font.SourceSans
+PetCountBox.TextSize = 16
+PetCountBox.ClearTextOnFocus = false
+PetCountBox.Text = "6"
+
+local GoldToggle = Instance.new("TextButton", MachinesScroll)
+GoldToggle.Size = UDim2.new(1, -20, 0, 40)
+GoldToggle.BackgroundColor3 = Color3.fromRGB(120, 0, 250)
+GoldToggle.TextColor3 = Color3.fromRGB(255,255,255)
+GoldToggle.Font = Enum.Font.SourceSansBold
+GoldToggle.TextSize = 18
+GoldToggle.Text = "Gold: OFF"
+
+local RainbowToggle = Instance.new("TextButton", MachinesScroll)
+RainbowToggle.Size = UDim2.new(1, -20, 0, 40)
+RainbowToggle.BackgroundColor3 = Color3.fromRGB(250,140,0)
+RainbowToggle.TextColor3 = Color3.fromRGB(255,255,255)
+RainbowToggle.Font = Enum.Font.SourceSansBold
+RainbowToggle.TextSize = 18
+RainbowToggle.Text = "Rainbow: OFF"
+
+local GoldActive, RainbowActive = false, false
+
+GoldToggle.MouseButton1Click:Connect(function()
+    GoldActive = not GoldActive
+    GoldToggle.Text = "Gold: "..(GoldActive and "ON" or "OFF")
+    GoldToggle.BackgroundColor3 = GoldActive and Color3.fromRGB(80,200,80) or Color3.fromRGB(120,0,250)
+end)
+
+RainbowToggle.MouseButton1Click:Connect(function()
+    RainbowActive = not RainbowActive
+    RainbowToggle.Text = "Rainbow: "..(RainbowActive and "ON" or "OFF")
+    RainbowToggle.BackgroundColor3 = RainbowActive and Color3.fromRGB(80,200,80) or Color3.fromRGB(250,140,0)
+end)
+
+-- Helper: send payload robust (FireServer if RemoteEvent, otherwise InvokeServer batched)
+local function sendPayloadsBatched(machineRemote, payloads)
+    if not machineRemote then return end
+
+    if machineRemote.ClassName == "RemoteEvent" then
+        -- RemoteEvent: safe to fire all quickly (async)
+        for _, payload in ipairs(payloads) do
+            task.spawn(function()
+                pcall(function() machineRemote:FireServer(payload) end)
+            end)
+        end
+    elseif machineRemote.ClassName == "RemoteFunction" then
+        -- RemoteFunction: batch to avoid freezing
+        local maxParallel = 10
+        for i = 1, #payloads, maxParallel do
+            for j = i, math.min(i + maxParallel - 1, #payloads) do
+                task.spawn(function()
+                    pcall(function() machineRemote:InvokeServer(payloads[j]) end)
+                end)
+            end
+            task.wait(0.06) -- tiny pause between waves
+        end
+    else
+        -- fallback: try InvokeServer for each
+        for _, payload in ipairs(payloads) do
+            task.spawn(function()
+                pcall(function() 
+                    if machineRemote.InvokeServer then
+                        machineRemote:InvokeServer(payload)
+                    elseif machineRemote.FireServer then
+                        machineRemote:FireServer(payload)
+                    end
+                end)
+            end)
+        end
+    end
+end
+
+-- craftAll: gruppiert Save.Pets nach pet.id, macht Packs der gewählten Größe und sendet sie
+local function craftAll(isGold)
+    local SaveData = SaveModule.Get(LocalPlayer)
+    if not SaveData or not SaveData.Pets then return end
+
+    local count = tonumber(PetCountBox.Text) or 6
+    if count < 1 or count > 6 then count = 6 end
+
+    local machineRemote = isGold and Remotes:FindFirstChild("use golden machine") or Remotes:FindFirstChild("use rainbow machine")
+    if not machineRemote then return end
+
+    local petsByID = {}
+    for _, pet in ipairs(SaveData.Pets) do
+        if pet.id then
+            if isGold then
+                if not pet.g and not pet.r and not pet.dm then
+                    petsByID[pet.id] = petsByID[pet.id] or {}
+                    table.insert(petsByID[pet.id], pet)
+                end
+            else
+                if pet.g then
+                    petsByID[pet.id] = petsByID[pet.id] or {}
+                    table.insert(petsByID[pet.id], pet)
+                end
+            end
+        end
+    end
+
+    local allPayloads = {}
+    for petID, pets in pairs(petsByID) do
+        local totalPacks = math.floor(#pets / count)
+        for i = 0, totalPacks - 1 do
+            local pack = {}
+            for j = 1, count do
+                table.insert(pack, pets[i * count + j].uid)
+            end
+            local payload = {{pack}, {false}} -- korrekte Struktur
+            table.insert(allPayloads, payload)
+        end
+    end
+
+    -- send payloads (batched or instant, je nach Remotetype)
+    if #allPayloads > 0 then
+        sendPayloadsBatched(machineRemote, allPayloads)
+    end
+end
+
+-- Loop für aktive Toggles (wenn ON -> craftAll)
+task.spawn(function()
+    while true do
+        if GoldActive then craftAll(true) end
+        if RainbowActive then craftAll(false) end
+        task.wait(0.6)
+    end
+end)
+
+-- Dynamische ScrollSize
 Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     MachinesScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
 end)
 
--- Tab aktivieren beim Klick
 MachinesTabButton.MouseButton1Click:Connect(function()
     showTab("Machines")
 end)
