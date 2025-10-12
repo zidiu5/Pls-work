@@ -464,6 +464,62 @@ end
 local rankToggle = createToggle(TogglesList, "Auto Collect Rank Rewards", false)
 local orbsToggle = createToggle(TogglesList, "Auto Collect Orbs", false)
 
+
+orbsToggle:SetCallback(function(state)
+    local Workspace = game:GetService("Workspace")
+    local Things = Workspace:WaitForChild("__THINGS")
+    local LootbagsFolder = Things:WaitForChild("Lootbags")
+    local OrbsFolder = Things:WaitForChild("Orbs")
+    local Remotes = Things:WaitForChild("__REMOTES")
+
+    if state then
+        task.spawn(function()
+            while orbsToggle._state do
+                -- Lootbags sammeln
+                for _, lootbag in pairs(LootbagsFolder:GetChildren()) do
+                    if lootbag:IsA("MeshPart") then
+                        local args = {
+                            {
+                                {
+                                    lootbag.Name,
+                                    lootbag.Position
+                                },
+                                {
+                                    false,
+                                    false
+                                }
+                            }
+                        }
+                        Remotes:WaitForChild("collect lootbag"):FireServer(unpack(args))
+                        lootbag:Destroy()
+                    end
+                end
+
+                -- Orbs sammeln
+                for _, orb in pairs(OrbsFolder:GetChildren()) do
+                    if orb:IsA("Part") then
+                        local args = {
+                            {
+                                {
+                                    {orb.Name}
+                                },
+                                {
+                                    false
+                                }
+                            }
+                        }
+                        Remotes:WaitForChild("claim orbs"):FireServer(unpack(args))
+                        orb:Destroy()
+                    end
+                end
+
+                task.wait(0.1)
+            end
+        end)
+    end
+end)
+
+
 --// Open/Close Button with Animation
 local OpenCloseBtn = Instance.new("TextButton", ScreenGui)
 OpenCloseBtn.Name = "OpenClose"
@@ -2227,5 +2283,6 @@ FindButton.MouseButton1Click:Connect(refreshResults)
 PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
 end)
+
 
 
