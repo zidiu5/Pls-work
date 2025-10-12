@@ -2096,6 +2096,7 @@ header.TextSize = 18
 header.Font = Enum.Font.SourceSansBold
 
 local PetBox = Instance.new("TextBox", PetFinderContent)
+PetBox.Text = ""
 PetBox.Size = UDim2.new(0.7, -10, 0, 30)
 PetBox.Position = UDim2.new(0,10,0,50)
 PetBox.PlaceholderText = "Pet Name..."
@@ -2226,4 +2227,5 @@ FindButton.MouseButton1Click:Connect(refreshResults)
 PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
 end)
+
 
