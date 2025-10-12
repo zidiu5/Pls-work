@@ -1336,4 +1336,889 @@ end)
 
 EggsTabButton.MouseButton1Click:Connect(function()
     showTab("Eggs")
+
+end)
+
+
+
+
+
+
+
+
+
+
+
+-- MACHINES TAB
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PetsFolder = workspace:WaitForChild("__THINGS"):WaitForChild("Pets")
+local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+local Remotes = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
+
+-- CONFIG
+local EnchantsList = {"Coins", "Fantasy Coins", "Tech Coins", "Royalty", "Diamonds", "Rng Coins", "Agility", "Charm", "Chests", "Glittering", "Magnet", "Present", "Strength", "Teamwork"}
+local AutoEnchantRunning = false
+
+-- Tab Setup
+local MachinesTabButton = createTabButton("Machines")
+local MachinesContent = createTabContent("Machines")
+
+-- Header
+local header = Instance.new("TextLabel", MachinesContent)
+header.Size = UDim2.new(1,0,0,30)
+header.Position = UDim2.new(0,10,0,10)
+header.BackgroundTransparency = 1
+header.Text = "Machine Controls"
+header.TextColor3 = Color3.fromRGB(255,255,255)
+header.TextSize = 18
+header.Font = Enum.Font.SourceSansBold
+
+-- ScrollFrame
+local MachinesScroll = Instance.new("ScrollingFrame", MachinesContent)
+MachinesScroll.Size = UDim2.new(1,0,1,-40)
+MachinesScroll.Position = UDim2.new(0,0,0,40)
+MachinesScroll.BackgroundTransparency = 1
+MachinesScroll.ScrollBarThickness = 6
+MachinesScroll.CanvasSize = UDim2.new(0,0,0,0)
+
+local Layout = Instance.new("UIListLayout", MachinesScroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0,10)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- AUTO ENCHANT SECTION 
+local EnchantToggles = {}
+local EnchantLevels = {}
+
+local EnchantHeader = Instance.new("TextLabel", MachinesScroll)
+EnchantHeader.Size = UDim2.new(1, -20, 0, 30)
+EnchantHeader.BackgroundTransparency = 1
+EnchantHeader.Text = "Auto Enchant"
+EnchantHeader.TextColor3 = Color3.fromRGB(255,255,0)
+EnchantHeader.TextSize = 18
+EnchantHeader.Font = Enum.Font.SourceSansBold
+
+for _, enchant in ipairs(EnchantsList) do
+    local frame = Instance.new("Frame", MachinesScroll)
+    frame.Size = UDim2.new(1, -20, 0, 36)
+    frame.BackgroundTransparency = 1
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(0.6,0,1,0)
+    label.Position = UDim2.new(0,0,0,0)
+    label.BackgroundTransparency = 1
+    label.Text = enchant
+    label.TextColor3 = Color3.fromRGB(240,240,240)
+    label.TextSize = 16
+    label.Font = Enum.Font.SourceSans
+
+    local toggleBtn = Instance.new("TextButton", frame)
+    toggleBtn.Size = UDim2.new(0.2,0,1,0)
+    toggleBtn.Position = UDim2.new(0.6,5,0,0)
+    toggleBtn.Text = "OFF"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(120,120,120)
+    toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    toggleBtn.TextSize = 16
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.AutoButtonColor = false
+
+    local state = false
+    toggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        toggleBtn.Text = state and "ON" or "OFF"
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
+        EnchantToggles[enchant] = state
+    end)
+    EnchantToggles[enchant] = false
+
+    local levelBox = Instance.new("TextBox", frame)
+    levelBox.Text = ""
+    levelBox.Size = UDim2.new(0.18,0,1,0)
+    levelBox.Position = UDim2.new(0.81,0,0,0)
+    levelBox.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    levelBox.TextColor3 = Color3.fromRGB(255,255,255)
+    levelBox.PlaceholderText = "Lvl"
+    levelBox.ClearTextOnFocus = false
+    levelBox.TextScaled = true
+    levelBox.FocusLost:Connect(function()
+        local num = tonumber(levelBox.Text)
+        if num then
+            EnchantLevels[enchant] = num
+        else
+            levelBox.Text = ""
+            EnchantLevels[enchant] = nil
+        end
+    end)
+end
+
+-- Start/Stop Button für AutoEnchant
+local startBtn = Instance.new("TextButton", MachinesScroll)
+startBtn.Size = UDim2.new(1, -20, 0, 40)
+startBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+startBtn.Text = "Start AutoEnchant"
+startBtn.TextSize = 16
+startBtn.Font = Enum.Font.SourceSansBold
+startBtn.TextColor3 = Color3.fromRGB(255,255,255)
+startBtn.Parent = MachinesScroll
+
+startBtn.MouseButton1Click:Connect(function()
+    AutoEnchantRunning = not AutoEnchantRunning
+    startBtn.Text = AutoEnchantRunning and "Stop AutoEnchant" or "Start AutoEnchant"
+
+    if AutoEnchantRunning then
+        for _, pet in ipairs(PetsFolder:GetChildren()) do
+            if pet:GetAttribute("Owner") == LocalPlayer.Name then
+                task.spawn(function()
+                    local petFinished = false
+                    while AutoEnchantRunning and not petFinished do
+                        local SaveData = SaveModule.Get(LocalPlayer)
+                        if not SaveData or not SaveData.Pets then break end
+                        local petSave
+                        for _, p in ipairs(SaveData.Pets) do
+                            if p.uid == (pet:GetAttribute("ID") or pet.Name) then petSave = p break end
+                        end
+                        if petSave then
+                            local done = false
+                            for enchant, lvl in pairs(EnchantLevels) do
+                                if EnchantToggles[enchant] then
+                                    for _, power in ipairs(petSave.powers) do
+                                        if power[1] == enchant and power[2] == lvl then
+                                            done = true
+                                        end
+                                    end
+                                end
+                            end
+                            if done then
+                                petFinished = true
+                            else
+                                local args = {{{petSave.uid},{false}}}
+                                pcall(function()
+                                    if Remotes:FindFirstChild("enchant pet") then
+                                        local r = Remotes["enchant pet"]
+                                        if r.ClassName == "RemoteFunction" then
+                                            r:InvokeServer(unpack(args))
+                                        else
+                                            r:FireServer(unpack(args))
+                                        end
+                                    end
+                                end)
+                            end
+                        end
+                        task.wait(0.5)
+                    end
+                end)
+            end
+        end
+    end
+end)
+
+-- AUTO CRAFT SECTION 
+local CraftHeader = Instance.new("TextLabel", MachinesScroll)
+CraftHeader.Size = UDim2.new(1, -20, 0, 30)
+CraftHeader.BackgroundTransparency = 1
+CraftHeader.Text = "AutoCraft"
+CraftHeader.TextColor3 = Color3.fromRGB(255,200,50)
+CraftHeader.TextSize = 18
+CraftHeader.Font = Enum.Font.SourceSansBold
+
+local PetCountLabel = Instance.new("TextLabel", MachinesScroll)
+PetCountLabel.Size = UDim2.new(1, -20, 0, 25)
+PetCountLabel.BackgroundTransparency = 1
+PetCountLabel.Text = "Pets per Craft (1–6):"
+PetCountLabel.TextColor3 = Color3.fromRGB(255,255,255)
+PetCountLabel.TextSize = 16
+PetCountLabel.Font = Enum.Font.SourceSans
+
+local PetCountBox = Instance.new("TextBox", MachinesScroll)
+PetCountBox.Size = UDim2.new(1, -20, 0, 30)
+PetCountBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+PetCountBox.TextColor3 = Color3.fromRGB(255,255,255)
+PetCountBox.Font = Enum.Font.SourceSans
+PetCountBox.TextSize = 16
+PetCountBox.ClearTextOnFocus = false
+PetCountBox.Text = "6"
+
+local GoldToggle = Instance.new("TextButton", MachinesScroll)
+GoldToggle.Size = UDim2.new(1, -20, 0, 40)
+GoldToggle.BackgroundColor3 = Color3.fromRGB(120, 0, 250)
+GoldToggle.TextColor3 = Color3.fromRGB(255,255,255)
+GoldToggle.Font = Enum.Font.SourceSansBold
+GoldToggle.TextSize = 18
+GoldToggle.Text = "Gold: OFF"
+
+local RainbowToggle = Instance.new("TextButton", MachinesScroll)
+RainbowToggle.Size = UDim2.new(1, -20, 0, 40)
+RainbowToggle.BackgroundColor3 = Color3.fromRGB(250,140,0)
+RainbowToggle.TextColor3 = Color3.fromRGB(255,255,255)
+RainbowToggle.Font = Enum.Font.SourceSansBold
+RainbowToggle.TextSize = 18
+RainbowToggle.Text = "Rainbow: OFF"
+
+local GoldActive, RainbowActive = false, false
+
+GoldToggle.MouseButton1Click:Connect(function()
+    GoldActive = not GoldActive
+    GoldToggle.Text = "Gold: "..(GoldActive and "ON" or "OFF")
+    GoldToggle.BackgroundColor3 = GoldActive and Color3.fromRGB(80,200,80) or Color3.fromRGB(120,0,250)
+end)
+
+RainbowToggle.MouseButton1Click:Connect(function()
+    RainbowActive = not RainbowActive
+    RainbowToggle.Text = "Rainbow: "..(RainbowActive and "ON" or "OFF")
+    RainbowToggle.BackgroundColor3 = RainbowActive and Color3.fromRGB(80,200,80) or Color3.fromRGB(250,140,0)
+end)
+
+local function sendPayloadsBatched(machineRemote, payloads)
+    if not machineRemote then return end
+
+    if machineRemote.ClassName == "RemoteEvent" then
+        for _, payload in ipairs(payloads) do
+            task.spawn(function()
+                pcall(function() machineRemote:FireServer(payload) end)
+            end)
+        end
+    elseif machineRemote.ClassName == "RemoteFunction" then
+        local maxParallel = 10
+        for i = 1, #payloads, maxParallel do
+            for j = i, math.min(i + maxParallel - 1, #payloads) do
+                task.spawn(function()
+                    pcall(function() machineRemote:InvokeServer(payloads[j]) end)
+                end)
+            end
+            task.wait(0.06)
+        end
+    else
+        for _, payload in ipairs(payloads) do
+            task.spawn(function()
+                pcall(function() 
+                    if machineRemote.InvokeServer then
+                        machineRemote:InvokeServer(payload)
+                    elseif machineRemote.FireServer then
+                        machineRemote:FireServer(payload)
+                    end
+                end)
+            end)
+        end
+    end
+end
+
+local function craftAll(isGold)
+    local SaveData = SaveModule.Get(LocalPlayer)
+    if not SaveData or not SaveData.Pets then return end
+
+    local count = tonumber(PetCountBox.Text) or 6
+    if count < 1 or count > 6 then count = 6 end
+
+    local machineRemote = isGold and Remotes:FindFirstChild("use golden machine") or Remotes:FindFirstChild("use rainbow machine")
+    if not machineRemote then return end
+
+    local petsByID = {}
+    for _, pet in ipairs(SaveData.Pets) do
+        if pet.id then
+            if isGold then
+                if not pet.g and not pet.r and not pet.dm then
+                    petsByID[pet.id] = petsByID[pet.id] or {}
+                    table.insert(petsByID[pet.id], pet)
+                end
+            else
+                if pet.g then
+                    petsByID[pet.id] = petsByID[pet.id] or {}
+                    table.insert(petsByID[pet.id], pet)
+                end
+            end
+        end
+    end
+
+    local allPayloads = {}
+    for petID, pets in pairs(petsByID) do
+        local totalPacks = math.floor(#pets / count)
+        for i = 0, totalPacks - 1 do
+            local pack = {}
+            for j = 1, count do
+                table.insert(pack, pets[i * count + j].uid)
+            end
+            local payload = {{pack}, {false}}
+            table.insert(allPayloads, payload)
+        end
+    end
+
+    if #allPayloads > 0 then
+        sendPayloadsBatched(machineRemote, allPayloads)
+    end
+end
+
+-- Loop for aktive Toggles
+task.spawn(function()
+    while true do
+        if GoldActive then craftAll(true) end
+        if RainbowActive then craftAll(false) end
+        task.wait(0.6)
+    end
+end)
+
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    MachinesScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+end)
+
+MachinesTabButton.MouseButton1Click:Connect(function()
+    showTab("Machines")
+end)
+
+
+
+
+
+
+
+
+-- ==== Misc Tab ====
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+local Remotes = Workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
+local BuyEggRemote = Remotes:WaitForChild("buy egg")
+local DeletePetsRemote = Remotes:WaitForChild("delete several pets")
+
+local MiscTabButton = createTabButton("Misc")
+local MiscContent = createTabContent("Misc")
+
+local header = Instance.new("TextLabel", MiscContent)
+header.Size = UDim2.new(1,0,0,30)
+header.Position = UDim2.new(0,10,0,10)
+header.BackgroundTransparency = 1
+header.Text = "Misc Features"
+header.TextColor3 = Color3.fromRGB(255,255,255)
+header.TextSize = 18
+header.Font = Enum.Font.SourceSansBold
+
+local MiscScroll = Instance.new("ScrollingFrame", MiscContent)
+MiscScroll.Size = UDim2.new(1,0,1,-40)
+MiscScroll.Position = UDim2.new(0,0,0,40)
+MiscScroll.BackgroundTransparency = 1
+MiscScroll.ScrollBarThickness = 6
+MiscScroll.CanvasSize = UDim2.new(0,0,0,0)
+
+local Layout = Instance.new("UIListLayout", MiscScroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0,10)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local Options = {
+    { name = "Huge Vampire Bat", egg = "Grim Eggz", id = "1215" },
+    { name = "Huge Mechatronic Robot", egg = "RNG Eggz", id = "2316" },
+    { name = "Ugly Shrek", egg = "Reversed Eggz", id = "1261" },
+    { name = "Titanic Axolotl", egg = "Axolotl Eggz", id = "12015" },
+}
+
+local selectedOption = Options[1]
+
+local dropdown = Instance.new("Frame", MiscScroll)
+dropdown.Size = UDim2.new(1, -20, 0, 36)
+dropdown.BackgroundColor3 = Color3.fromRGB(40,40,40)
+dropdown.BorderSizePixel = 0
+dropdown.ClipsDescendants = true
+
+local selectedLabel = Instance.new("TextButton", dropdown)
+selectedLabel.Size = UDim2.new(1, 0, 0, 36)
+selectedLabel.BackgroundColor3 = Color3.fromRGB(70,70,70)
+selectedLabel.TextColor3 = Color3.new(1,1,1)
+selectedLabel.Font = Enum.Font.SourceSansBold
+selectedLabel.TextSize = 16
+selectedLabel.Text = "Selected: " .. selectedOption.name
+
+local dropdownContainer = Instance.new("Frame", dropdown)
+dropdownContainer.Position = UDim2.new(0,0,0,36)
+dropdownContainer.Size = UDim2.new(1,0,0,#Options * 36)
+dropdownContainer.BackgroundTransparency = 1
+
+local uiList = Instance.new("UIListLayout", dropdownContainer)
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+
+for _,opt in ipairs(Options) do
+    local btn = Instance.new("TextButton", dropdownContainer)
+    btn.Size = UDim2.new(1, 0, 0, 36)
+    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Text = opt.name
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 16
+
+    btn.MouseButton1Click:Connect(function()
+        selectedOption = opt
+        selectedLabel.Text = "Selected: " .. opt.name
+        dropdown:TweenSize(UDim2.new(1, -20, 0, 36), "Out", "Quad", 0.2, true)
+    end)
+end
+
+local expanded = false
+selectedLabel.MouseButton1Click:Connect(function()
+    expanded = not expanded
+    dropdown:TweenSize(
+        expanded and UDim2.new(1, -20, 0, (#Options+1) * 36)
+        or UDim2.new(1, -20, 0, 36),
+        "Out",
+        "Quad",
+        0.2,
+        true
+    )
+end)
+
+-- Auto Hatch
+local HatchDelay = 0.3
+local Running = false
+local EggsHatched = 0
+
+local hatchLabel = Instance.new("TextLabel", MiscScroll)
+hatchLabel.Size = UDim2.new(1, -20, 0, 30)
+hatchLabel.BackgroundTransparency = 1
+hatchLabel.TextColor3 = Color3.fromRGB(255,255,255)
+hatchLabel.Text = "Eggs gehatcht: 0"
+hatchLabel.Font = Enum.Font.SourceSans
+hatchLabel.TextSize = 16
+
+local startBtn = Instance.new("TextButton", MiscScroll)
+startBtn.Size = UDim2.new(1, -20, 0, 36)
+startBtn.BackgroundColor3 = Color3.fromRGB(50,200,50)
+startBtn.TextColor3 = Color3.new(1,1,1)
+startBtn.Text = "Start Auto Hatch"
+startBtn.Font = Enum.Font.SourceSansBold
+startBtn.TextSize = 18
+
+local stopBtn = Instance.new("TextButton", MiscScroll)
+stopBtn.Size = UDim2.new(1, -20, 0, 36)
+stopBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+stopBtn.TextColor3 = Color3.new(1,1,1)
+stopBtn.Text = "Stop Auto Hatch"
+stopBtn.Font = Enum.Font.SourceSansBold
+stopBtn.TextSize = 18
+
+local function DeletePet(petUID)
+    local args = {
+        { { {petUID} }, {false} }
+    }
+    DeletePetsRemote:InvokeServer(unpack(args))
+end
+
+local function CheckNewPets()
+    local SaveData = SaveModule.Get(LocalPlayer)
+    if not SaveData or not SaveData.Pets then return end
+    for _, pet in ipairs(SaveData.Pets) do
+        if pet.id == selectedOption.id then
+            if not pet.r and not pet.dm then
+                DeletePet(pet.uid)
+            end
+        end
+    end
+end
+
+local function AutoHatchLoop()
+    while Running do
+        local args = {
+            { { selectedOption.egg, true, false }, { false, false, false } }
+        }
+        BuyEggRemote:InvokeServer(unpack(args))
+        task.wait(0.5)
+        CheckNewPets()
+        EggsHatched += 3
+        hatchLabel.Text = "Eggs gehatcht: " .. EggsHatched
+        task.wait(HatchDelay)
+    end
+end
+
+startBtn.MouseButton1Click:Connect(function()
+    if not Running then
+        Running = true
+        spawn(AutoHatchLoop)
+    end
+end)
+
+stopBtn.MouseButton1Click:Connect(function()
+    Running = false
+end)
+
+local disableAnim = false
+local savedOpenEggFuncs = {}
+
+local animToggle = Instance.new("TextButton", MiscScroll)
+animToggle.Size = UDim2.new(1, -20, 0, 36)
+animToggle.BackgroundColor3 = Color3.fromRGB(100,100,100)
+animToggle.TextColor3 = Color3.new(1,1,1)
+animToggle.Text = "Disable Egg Animation: OFF"
+animToggle.Font = Enum.Font.SourceSansBold
+animToggle.TextSize = 16
+
+animToggle.MouseButton1Click:Connect(function()
+    disableAnim = not disableAnim
+    animToggle.Text = "Disable Egg Animation: " .. (disableAnim and "ON" or "OFF")
+    animToggle.BackgroundColor3 = disableAnim and Color3.fromRGB(60,140,60) or Color3.fromRGB(100,100,100)
+
+    for _,v in pairs(getgc(true)) do
+        if typeof(v) == "table" and rawget(v, "OpenEgg") then
+            if disableAnim and not savedOpenEggFuncs[v] then
+                savedOpenEggFuncs[v] = v.OpenEgg
+                v.OpenEgg = function() return end
+            elseif not disableAnim and savedOpenEggFuncs[v] then
+                v.OpenEgg = savedOpenEggFuncs[v]
+                savedOpenEggFuncs[v] = nil
+            end
+        end
+    end
+end)
+
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    MiscScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+end)
+
+MiscTabButton.MouseButton1Click:Connect(function()
+    showTab("Misc")
+end)
+
+
+
+
+-- INDEX TAB: Missing Pets
+local IndexTab = createTabContent("Index")
+
+local Title = Instance.new("TextLabel", IndexTab)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundTransparency = 1
+Title.Text = "🐾 Missing Pets"
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.TextSize = 20
+Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Position = UDim2.new(0, 10, 0, 5)
+
+local RarityFilter = Instance.new("TextButton", IndexTab)
+RarityFilter.Size = UDim2.new(0.48, -5, 0, 28)
+RarityFilter.Position = UDim2.new(0, 10, 0, 40)
+RarityFilter.BackgroundColor3 = Color3.fromRGB(60,60,60)
+RarityFilter.TextColor3 = Color3.fromRGB(255,255,255)
+RarityFilter.Font = Enum.Font.SourceSansBold
+RarityFilter.TextSize = 14
+RarityFilter.Text = "Filter: All"
+
+local VariantFilter = Instance.new("TextButton", IndexTab)
+VariantFilter.Size = UDim2.new(0.48, -5, 0, 28)
+VariantFilter.Position = UDim2.new(0.5, 0, 0, 40)
+VariantFilter.BackgroundColor3 = Color3.fromRGB(60,60,60)
+VariantFilter.TextColor3 = Color3.fromRGB(255,255,255)
+VariantFilter.Font = Enum.Font.SourceSansBold
+VariantFilter.TextSize = 14
+VariantFilter.Text = "Filter: All"
+
+local ScrollFrame = Instance.new("ScrollingFrame", IndexTab)
+ScrollFrame.Size = UDim2.new(1, -20, 1, -90)
+ScrollFrame.Position = UDim2.new(0, 10, 0, 80)
+ScrollFrame.CanvasSize = UDim2.new(0,0,0,0)
+ScrollFrame.ScrollBarThickness = 6
+ScrollFrame.BackgroundTransparency = 1
+
+local UIList = Instance.new("UIListLayout", ScrollFrame)
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 6)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+local SaveData = SaveModule.Get(LocalPlayer)
+
+local PetIndex = SaveData.Collection or {}
+local rarityMap = { ["1"]="Normal", ["2"]="Gold", ["3"]="Rainbow", ["4"]="DarkMatter" }
+local foundPets = {}
+
+for petID, val in pairs(PetIndex) do
+    local artID, rarityNum = tostring(val):match("^(%d+)%-(%d+)$")
+    if artID and rarityNum then
+        foundPets[tonumber(artID)] = foundPets[tonumber(artID)] or {Normal=false, Gold=false, Rainbow=false, DarkMatter=false}
+        local rarityName = rarityMap[rarityNum]
+        if rarityName then
+            foundPets[tonumber(artID)][rarityName] = true
+        end
+    end
+end
+
+local allPetsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Pets")
+local allPets = {}
+for _, petFolder in ipairs(allPetsFolder:GetChildren()) do
+    local petModule = petFolder:FindFirstChildOfClass("ModuleScript")
+    if petModule then
+        local success, petData = pcall(require, petModule)
+        if success and petData then
+            local petID = tonumber(petFolder.Name:match("^(%d+)")) or 0
+            local name = petData.name or "?"
+            local rarity = petData.rarity or "?"
+            allPets[petID] = {name=name, rarity=rarity}
+        end
+    end
+end
+
+local function getMissingPets()
+    local missingPets = {}
+    for id, petData in pairs(allPets) do
+        local owned = foundPets[id]
+        local missing = {}
+        if owned then
+            for _, variant in ipairs({"Normal","Gold","Rainbow","DarkMatter"}) do
+                if not owned[variant] then table.insert(missing, variant) end
+            end
+        else
+            missing = {"Normal","Gold","Rainbow","DarkMatter"}
+        end
+        if #missing > 0 then
+            table.insert(missingPets, {id=id, name=petData.name, rarity=petData.rarity, missing=table.concat(missing,", ")})
+        end
+    end
+    table.sort(missingPets, function(a,b) return a.id < b.id end)
+    return missingPets
+end
+
+local rarityOptions = {"All","Basic","Rare","Epic","Legendary","Mythical","Exclusive"}
+local variantOptions = {"All","Normal","Gold","Rainbow","DarkMatter"}
+local selectedRarity = "All"
+local selectedVariant = "All"
+
+local function refreshList()
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local missingPets = getMissingPets()
+    for _, pet in ipairs(missingPets) do
+        local rarityPass = (selectedRarity == "All" or pet.rarity == selectedRarity)
+        local variantPass = (selectedVariant == "All" or string.find(pet.missing, selectedVariant))
+        if rarityPass and variantPass then
+            local item = Instance.new("Frame", ScrollFrame)
+            item.Size = UDim2.new(1,-10,0,60)
+            item.BackgroundColor3 = Color3.fromRGB(45,45,45)
+            item.BorderSizePixel = 0
+            item.LayoutOrder = pet.id
+
+            local nameLabel = Instance.new("TextLabel", item)
+            nameLabel.Size = UDim2.new(1,-10,0,20)
+            nameLabel.Position = UDim2.new(0,5,0,5)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = string.format("[%d] %s (%s)", pet.id, pet.name, pet.rarity)
+            nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+            nameLabel.TextSize = 16
+            nameLabel.Font = Enum.Font.SourceSansBold
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            local missingLabel = Instance.new("TextLabel", item)
+            missingLabel.Size = UDim2.new(1,-10,0,20)
+            missingLabel.Position = UDim2.new(0,5,0,30)
+            missingLabel.BackgroundTransparency = 1
+            missingLabel.Text = "❌ Missing Variants: " .. pet.missing
+            missingLabel.TextColor3 = Color3.fromRGB(255,150,150)
+            missingLabel.TextSize = 14
+            missingLabel.Font = Enum.Font.SourceSans
+            missingLabel.TextXAlignment = Enum.TextXAlignment.Left
+        end
+    end
+
+    ScrollFrame.CanvasSize = UDim2.new(0,0,0,UIList.AbsoluteContentSize.Y + 10)
+end
+
+local function setupCycleButton(button, options, setFunc)
+    local index = 1
+    button.Text = "Filter: " .. options[index]
+    button.MouseButton1Click:Connect(function()
+        index = index + 1
+        if index > #options then index = 1 end
+        local value = options[index]
+        button.Text = "Filter: " .. value
+        setFunc(value)
+        refreshList()
+    end)
+end
+
+setupCycleButton(RarityFilter, rarityOptions, function(opt)
+    selectedRarity = opt
+end)
+
+setupCycleButton(VariantFilter, variantOptions, function(opt)
+    selectedVariant = opt
+end)
+
+refreshList()
+
+local IndexTabButton = createTabButton("Index")
+IndexTabButton.MouseButton1Click:Connect(function() showTab("Index") end)
+
+
+
+
+
+
+
+-- Pet Finder Tab 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local allPetsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Pets")
+local PetNames = {}
+local PetIDs = {}
+for _, petFolder in ipairs(allPetsFolder:GetChildren()) do
+    local petModule = petFolder:FindFirstChildOfClass("ModuleScript")
+    if petModule then
+        local success, petData = pcall(require, petModule)
+        if success and petData then
+            local petID = tonumber(petFolder.Name:match("^(%d+)")) or 0
+            local name = petData.name or tostring(petID)
+            PetNames[petID] = name
+            PetIDs[name:lower()] = petID
+        end
+    end
+end
+
+local PetFinderTabButton = createTabButton("Pet Finder")
+local PetFinderContent = createTabContent("Pet Finder")
+
+local header = Instance.new("TextLabel", PetFinderContent)
+header.Size = UDim2.new(1,0,0,30)
+header.Position = UDim2.new(0,10,0,10)
+header.BackgroundTransparency = 1
+header.Text = "Pet Finder 🔍"
+header.TextColor3 = Color3.fromRGB(255,255,255)
+header.TextSize = 18
+header.Font = Enum.Font.SourceSansBold
+
+local PetBox = Instance.new("TextBox", PetFinderContent)
+PetBox.Size = UDim2.new(0.7, -10, 0, 30)
+PetBox.Position = UDim2.new(0,10,0,50)
+PetBox.PlaceholderText = "Pet Name..."
+PetBox.TextColor3 = Color3.fromRGB(255,255,255)
+PetBox.BackgroundColor3 = Color3.fromRGB(60,60,60)
+PetBox.Font = Enum.Font.SourceSans
+PetBox.TextSize = 16
+PetBox.ClearTextOnFocus = false
+
+local FindButton = Instance.new("TextButton", PetFinderContent)
+FindButton.Size = UDim2.new(0.28, -10, 0, 30)
+FindButton.Position = UDim2.new(0.72, 10, 0, 50)
+FindButton.Text = "Find Egg"
+FindButton.BackgroundColor3 = Color3.fromRGB(80,80,80)
+FindButton.TextColor3 = Color3.fromRGB(255,255,255)
+FindButton.Font = Enum.Font.SourceSansBold
+FindButton.TextSize = 16
+
+local ScrollFrame = Instance.new("ScrollingFrame", PetFinderContent)
+ScrollFrame.Size = UDim2.new(1,-20,1,-100)
+ScrollFrame.Position = UDim2.new(0,10,0,90)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 6
+
+local UIList = Instance.new("UIListLayout", ScrollFrame)
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0,5)
+
+local function findEggsForPet(petName)
+    local results = {}
+    local petID = PetIDs[petName:lower()]
+    if not petID then return results end
+
+    local EggsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Eggs")
+    for _, category in ipairs(EggsFolder:GetChildren()) do
+        local categoryName = category.Name
+        for _, eggFolder in ipairs(category:GetChildren()) do
+            local eggModule = eggFolder:FindFirstChildOfClass("ModuleScript")
+            if eggModule then
+                local success, eggData = pcall(require, eggModule)
+                if success and eggData and type(eggData.drops) == "table" then
+                    for _, drop in ipairs(eggData.drops) do
+                        if type(drop) == "table" and tonumber(drop[1]) == petID then
+                            table.insert(results, {
+                                EggName = eggData.displayName or eggFolder.Name,
+                                Hatchable = eggData.hatchable,
+                                Cost = eggData.cost,
+                                Currency = eggData.currency,
+                                Area = eggData.area,
+                                PetID = petID,
+                                Chance = drop[2],
+                                Path = categoryName..", "..eggFolder.Name
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return results
+end
+
+local function refreshResults()
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        child:Destroy()
+    end
+
+    local petName = PetBox.Text
+    if petName == "" then return end
+
+    local eggs = findEggsForPet(petName)
+    if #eggs == 0 then
+        local label = Instance.new("TextLabel", ScrollFrame)
+        label.Size = UDim2.new(1,0,0,25)
+        label.BackgroundTransparency = 1
+        label.Text = "No Eggs found for "..petName
+        label.TextColor3 = Color3.fromRGB(255,150,150)
+        label.Font = Enum.Font.SourceSansBold
+        label.TextSize = 16
+        label.TextXAlignment = Enum.TextXAlignment.Left
+    else
+        for i, egg in ipairs(eggs) do
+            local item = Instance.new("Frame", ScrollFrame)
+            item.Size = UDim2.new(1,0,0,90)
+            item.BackgroundColor3 = Color3.fromRGB(45,45,45)
+            item.BorderSizePixel = 0
+            item.LayoutOrder = i
+
+            local nameLabel = Instance.new("TextLabel", item)
+            nameLabel.Size = UDim2.new(1,-10,0,20)
+            nameLabel.Position = UDim2.new(0,5,0,5)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = "Egg: "..egg.EggName.." | Hatchable: "..tostring(egg.Hatchable)
+            nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+            nameLabel.TextSize = 14
+            nameLabel.Font = Enum.Font.SourceSansBold
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            local infoLabel = Instance.new("TextLabel", item)
+            infoLabel.Size = UDim2.new(1,-10,0,40)
+            infoLabel.Position = UDim2.new(0,5,0,25)
+            infoLabel.BackgroundTransparency = 1
+            infoLabel.Text = string.format("Cost: %s %s | Area: %s | PetID: %d | Chance: %s%%",
+                tostring(egg.Cost), tostring(egg.Currency), tostring(egg.Area), egg.PetID, tostring(egg.Chance))
+            infoLabel.TextColor3 = Color3.fromRGB(200,200,255)
+            infoLabel.TextSize = 14
+            infoLabel.Font = Enum.Font.SourceSans
+            infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            local pathLabel = Instance.new("TextLabel", item)
+            pathLabel.Size = UDim2.new(1,-10,0,20)
+            pathLabel.Position = UDim2.new(0,5,0,65)
+            pathLabel.BackgroundTransparency = 1
+            pathLabel.Text = "Path: "..egg.Path
+            pathLabel.TextColor3 = Color3.fromRGB(180,255,180)
+            pathLabel.TextSize = 14
+            pathLabel.Font = Enum.Font.SourceSans
+            pathLabel.TextXAlignment = Enum.TextXAlignment.Left
+        end
+    end
+
+    ScrollFrame.CanvasSize = UDim2.new(0,0,0,UIList.AbsoluteContentSize.Y+10)
+end
+
+FindButton.MouseButton1Click:Connect(refreshResults)
+
+-- Tab aktivieren beim Klick
+PetFinderTabButton.MouseButton1Click:Connect(function()
+    showTab("Pet Finder")
 end)
