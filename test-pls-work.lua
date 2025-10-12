@@ -430,6 +430,8 @@ local function createToggle(parent, text, initial)
     label.TextColor3 = Color3.fromRGB(240,240,240)
     label.TextSize = 16
     label.Font = Enum.Font.SourceSans
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
 
     local toggleBtn = Instance.new("TextButton", frame)
     toggleBtn.Size = UDim2.new(0.18, -6, 1, 0)
@@ -444,79 +446,96 @@ local function createToggle(parent, text, initial)
     local state = initial
     local onToggle = function(newState) end
 
+    -- Exposed object and flags
+    local obj = {}
+    obj._state = state           -- aktueller Zustand (wird von außen geprüft)
+    obj._running = false        -- Laufende Hintergrund-Task (verhindert Duplikate)
+
     toggleBtn.MouseButton1Click:Connect(function()
         state = not state
+        obj._state = state
         toggleBtn.Text = state and "ON" or "OFF"
         toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
         onToggle(state)
     end)
 
-    local obj = {}
     function obj:SetCallback(fn) onToggle = fn end
     function obj:SetState(s)
         state = s
+        obj._state = s
         toggleBtn.Text = state and "ON" or "OFF"
         toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
     end
+
     return obj
 end
 
 local rankToggle = createToggle(TogglesList, "Auto Collect Rank Rewards", false)
 local orbsToggle = createToggle(TogglesList, "Auto Collect Orbs", false)
 
-
-orbsToggle:SetCallback(function(state)
+orbsToggle:SetCallback(function(enabled)
     local Workspace = game:GetService("Workspace")
     local Things = Workspace:WaitForChild("__THINGS")
     local LootbagsFolder = Things:WaitForChild("Lootbags")
     local OrbsFolder = Things:WaitForChild("Orbs")
     local Remotes = Things:WaitForChild("__REMOTES")
 
-    if state then
-        task.spawn(function()
-            while orbsToggle._state do
-                -- Lootbags sammeln
-                for _, lootbag in pairs(LootbagsFolder:GetChildren()) do
-                    if lootbag:IsA("MeshPart") then
-                        local args = {
-                            {
-                                {
-                                    lootbag.Name,
-                                    lootbag.Position
-                                },
-                                {
-                                    false,
-                                    false
-                                }
-                            }
-                        }
-                        Remotes:WaitForChild("collect lootbag"):FireServer(unpack(args))
-                        lootbag:Destroy()
-                    end
-                end
-
-                -- Orbs sammeln
-                for _, orb in pairs(OrbsFolder:GetChildren()) do
-                    if orb:IsA("Part") then
-                        local args = {
-                            {
-                                {
-                                    {orb.Name}
-                                },
-                                {
-                                    false
-                                }
-                            }
-                        }
-                        Remotes:WaitForChild("claim orbs"):FireServer(unpack(args))
-                        orb:Destroy()
-                    end
-                end
-
-                task.wait(0.1)
-            end
-        end)
+    -- Wenn ausgeschaltet: das ermöglicht laufenden Loop natürlich zu stoppen (er prüft orbsToggle._state)
+    if not enabled then
+        return
     end
+
+    -- Verhindere, dass bei mehreren schnellen Klicks mehrere Loops gestartet werden
+    if orbsToggle._running then return end
+    orbsToggle._running = true
+
+    task.spawn(function()
+        while orbsToggle._state do
+            -- Lootbags sammeln
+            for _, lootbag in pairs(LootbagsFolder:GetChildren()) do
+                if lootbag and lootbag:IsA("MeshPart") then
+                    local args = {
+                        {
+                            {
+                                lootbag.Name,
+                                lootbag.Position
+                            },
+                            {
+                                false,
+                                false
+                            }
+                        }
+                    }
+                    Remotes:WaitForChild("collect lootbag"):FireServer(unpack(args))
+                    -- optional: pcall beim Destroy, falls außerhalb erreichbar
+                    pcall(function() lootbag:Destroy() end)
+                end
+            end
+
+            -- Orbs sammeln
+            for _, orb in pairs(OrbsFolder:GetChildren()) do
+                if orb and orb:IsA("Part") then
+                    local args = {
+                        {
+                            {
+                                {orb.Name}
+                            },
+                            {
+                                false
+                            }
+                        }
+                    }
+                    Remotes:WaitForChild("claim orbs"):FireServer(unpack(args))
+                    pcall(function() orb:Destroy() end)
+                end
+            end
+
+            task.wait(0.1)
+        end
+
+        -- Loop beendet -> running zurücksetzen
+        orbsToggle._running = false
+    end)
 end)
 
 
@@ -2283,6 +2302,7 @@ FindButton.MouseButton1Click:Connect(refreshResults)
 PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
 end)
+
 
 
 
