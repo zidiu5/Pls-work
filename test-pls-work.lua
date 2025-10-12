@@ -373,6 +373,10 @@ local function createTabContent(name)
     return tab
 end
 
+local spacer = Instance.new("Frame", TabFrame)
+spacer.Size = UDim2.new(1,0,0,0)
+spacer.BackgroundTransparency = 1
+
 local MainTabButton = createTabButton("Main")
 local FarmTabButton = createTabButton("Farm")
 local MainContent = createTabContent("Main")
@@ -2222,3 +2226,4 @@ FindButton.MouseButton1Click:Connect(refreshResults)
 PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
 end)
+
