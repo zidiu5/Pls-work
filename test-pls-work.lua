@@ -1396,8 +1396,8 @@ for _, category in pairs(EggsFolder:GetChildren()) do
                                 }
                             }
                             pcall(function()
-                                if Remotes:FindFirstChild("buy egg") and Remotes["buy egg"].InvokeServer then
-                                    Remotes["buy egg"]:InvokeServer(unpack(args))
+                                if Remotes:FindFirstChild("buyx egg") and Remotes["buyx egg"].InvokeServer then
+                                    Remotes["buyx egg"]:InvokeServer(unpack(args))
                                 end
                             end)
                         end
@@ -1760,7 +1760,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
 local Remotes = Workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
-local BuyEggRemote = Remotes:WaitForChild("buy egg")
+local BuyEggRemote = Remotes:WaitForChild("buyx egg")
 local DeletePetsRemote = Remotes:WaitForChild("delete several pets")
 
 local MiscTabButton = createTabButton("Misc")
@@ -2302,6 +2302,7 @@ FindButton.MouseButton1Click:Connect(refreshResults)
 PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
 end)
+
 
 
 
