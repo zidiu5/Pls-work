@@ -431,7 +431,11 @@ for i, t in ipairs(Tabs) do
 end
 
 
---// OPEN/CLOSE BUTTON LOGIC (mit Positionsspeicherung)
+
+
+
+--// OPEN/CLOSE LOGIC + POSITIONSMERKUNG + DRAGGING
+
 local guiVisible = false
 local lastPosition = UDim2.new(0.5, -320, 0.5, -210) -- Startposition
 
@@ -449,8 +453,8 @@ end
 local function closeGUI()
 	if not guiVisible then return end
 	guiVisible = false
-	lastPosition = MainFrame.Position
-	local tw = tween(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.4)
+	lastPosition = MainFrame.Position -- Position merken!
+	local tw = tween(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.35)
 	tw:Play()
 	tw.Completed:Wait()
 	MainFrame.Visible = false
@@ -464,29 +468,64 @@ OpenButton.MouseButton1Click:Connect(function()
 	end
 end)
 
---// DRAGGING: OpenButton bleibt verschiebbar
-local draggingOpenButton = false
-local dragStartPos, startPos
+--// DRAGGABLE MAINFRAME (volle Fläche)
+local dragging = false
+local dragStart, startPos
+
+MainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		local screenW = workspace.CurrentCamera.ViewportSize.X
+		local screenH = workspace.CurrentCamera.ViewportSize.Y
+		local newX = startPos.X.Scale + (delta.X / screenW)
+		local newY = startPos.Y.Scale + (delta.Y / screenH)
+		MainFrame.Position = UDim2.new(newX, startPos.X.Offset + delta.X, newY, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+--// DRAGGABLE OPENBUTTON (separat)
+local obDragging = false
+local obStartPos, obDragStart
 
 OpenButton.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		draggingOpenButton = true
-		dragStartPos = input.Position
-		startPos = OpenButton.Position
+		obDragging = true
+		obDragStart = input.Position
+		obStartPos = OpenButton.Position
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
-				draggingOpenButton = false
+				obDragging = false
 			end
 		end)
 	end
 end)
 
 OpenButton.InputChanged:Connect(function(input)
-	if draggingOpenButton and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-		local delta = input.Position - dragStartPos
-		OpenButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	if obDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - obDragStart
+		local screenW = workspace.CurrentCamera.ViewportSize.X
+		local screenH = workspace.CurrentCamera.ViewportSize.Y
+		local newX = obStartPos.X.Scale + (delta.X / screenW)
+		local newY = obStartPos.Y.Scale + (delta.Y / screenH)
+		OpenButton.Position = UDim2.new(newX, obStartPos.X.Offset + delta.X, newY, obStartPos.Y.Offset + delta.Y)
 	end
 end)
+
+
+
 
 
 
@@ -549,3 +588,4 @@ end)
 
 -- initial ready
 print("ChatGPT-style GUI loaded.")
+
