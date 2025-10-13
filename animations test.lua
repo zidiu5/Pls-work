@@ -200,6 +200,18 @@ for index, name in ipairs(TabOrder) do
 	InnerList.Padding = UDim.new(0,10)
 	InnerList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
+	--// GUI Layer Fix
+	MainFrame.ZIndex = 1
+	for _, child in ipairs(MainFrame:GetDescendants()) do
+		if child:IsA("GuiObject") then
+			child.ZIndex += 1
+		end
+	end
+	
+	OpenButton.ZIndex = 10 -- ganz vorne
+
+	
+	
 	-- add sample contents depending on tab
 	if name == "Test Buttons" then
 		for i=1,3 do
@@ -435,17 +447,6 @@ end
 
 
 
---// GUI Layer Fix
-MainFrame.ZIndex = 1
-for _, child in ipairs(MainFrame:GetDescendants()) do
-	if child:IsA("GuiObject") then
-		child.ZIndex += 1
-	end
-end
-
-OpenButton.ZIndex = 10 -- ganz vorne
-
-
 
 
 
@@ -605,5 +606,6 @@ end)
 
 -- initial ready
 print("ChatGPT-style GUI loaded.")
+
 
 
