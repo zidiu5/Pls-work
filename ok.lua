@@ -1104,8 +1104,8 @@ for _, category in pairs(EggsFolder:GetChildren()) do
                                 }
                             }
                             pcall(function()
-                                if Remotes:FindFirstChild("buyx egg") and Remotes["buyx egg"].InvokeServer then
-                                    Remotes["buyx egg"]:InvokeServer(unpack(args))
+                                if Remotes:FindFirstChild("buy egg") and Remotes["buy egg"].InvokeServer then
+                                    Remotes["buy egg"]:InvokeServer(unpack(args))
                                 end
                             end)
                         end
@@ -1471,7 +1471,7 @@ end)
 
 
 
---[[
+
 -- ==== Misc Tab ====
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -1480,7 +1480,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
 local Remotes = Workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
-local BuyEggRemote = Remotes:WaitForChild("buyx egg")
+local BuyEggRemote = Remotes:WaitForChild("buy egg")
 local DeletePetsRemote = Remotes:WaitForChild("delete several pets")
 
 local MiscTabButton = createTabButton("Misc")
@@ -1676,7 +1676,7 @@ end)
 MiscTabButton.MouseButton1Click:Connect(function()
     showTab("Misc")
 end)
-]]
+
 
 
 
