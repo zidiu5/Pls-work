@@ -532,3 +532,60 @@ end)
 
 -- initial ready
 print("ChatGPT-style GUI loaded.")
+
+--// OPEN/CLOSE BUTTON LOGIC (mit Positionsspeicherung)
+local guiVisible = false
+local lastPosition = UDim2.new(0.5, -320, 0.5, -210) -- Startposition
+
+-- Öffnen / Schließen mit gespeicherter Position
+local function openGUI()
+	if guiVisible then return end
+	guiVisible = true
+	MainFrame.Visible = true
+	MainFrame.Position = lastPosition
+	MainFrame.BackgroundTransparency = 1
+	MainFrame.Size = UDim2.new(0, 0, 0, 0)
+	tween(MainFrame, {Size = UDim2.new(0, 640, 0, 420), BackgroundTransparency = 0}, 0.4):Play()
+end
+
+local function closeGUI()
+	if not guiVisible then return end
+	guiVisible = false
+	lastPosition = MainFrame.Position
+	local tw = tween(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.4)
+	tw:Play()
+	tw.Completed:Wait()
+	MainFrame.Visible = false
+end
+
+OpenButton.MouseButton1Click:Connect(function()
+	if guiVisible then
+		closeGUI()
+	else
+		openGUI()
+	end
+end)
+
+--// DRAGGING: OpenButton bleibt verschiebbar
+local draggingOpenButton = false
+local dragStartPos, startPos
+
+OpenButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		draggingOpenButton = true
+		dragStartPos = input.Position
+		startPos = OpenButton.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				draggingOpenButton = false
+			end
+		end)
+	end
+end)
+
+OpenButton.InputChanged:Connect(function(input)
+	if draggingOpenButton and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStartPos
+		OpenButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
