@@ -1117,6 +1117,23 @@ for _, category in pairs(EggsFolder:GetChildren()) do
     end
 end
 
+
+
+
+local emptyButtonsCount = 3
+
+for i = 1, emptyButtonsCount do
+    local emptyBtn = Instance.new("TextButton", EggsScroll)
+    emptyBtn.Size = UDim2.new(1, -20, 0, 36)
+    emptyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) -- z.B. dunkles Grau
+    emptyBtn.Text = "" -- leerer Text
+    emptyBtn.ZIndex = 1
+end
+
+
+
+
+
 Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     EggsScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
 end)
