@@ -1099,7 +1099,7 @@ for _, category in pairs(EggsFolder:GetChildren()) do
                         if selectedEgg ~= "None" then
                             local args = {
                                 {
-                                    {selectedEgg,true,false},
+                                    {selectedEgg,false,true},
                                     {false,false,false}
                                 }
                             }
@@ -1454,7 +1454,7 @@ end)
 
 
 
-
+--[[
 -- ==== Misc Tab ====
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -1601,7 +1601,7 @@ end
 local function AutoHatchLoop()
     while Running do
         local args = {
-            { { selectedOption.egg, true, false }, { false, false, false } }
+            { { selectedOption.egg, false, true }, { false, false, false } }
         }
         BuyEggRemote:InvokeServer(unpack(args))
         task.wait(0.5)
@@ -1659,7 +1659,7 @@ end)
 MiscTabButton.MouseButton1Click:Connect(function()
     showTab("Misc")
 end)
-
+]]
 
 
 
