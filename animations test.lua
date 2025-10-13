@@ -434,6 +434,23 @@ end
 
 
 
+
+--// GUI Layer Fix
+MainFrame.ZIndex = 1
+for _, child in ipairs(MainFrame:GetDescendants()) do
+	if child:IsA("GuiObject") then
+		child.ZIndex += 1
+	end
+end
+
+OpenButton.ZIndex = 10 -- ganz vorne
+
+
+
+
+
+
+
 --// OPEN/CLOSE LOGIC + POSITIONSMERKUNG + DRAGGING
 
 local guiVisible = false
@@ -588,4 +605,5 @@ end)
 
 -- initial ready
 print("ChatGPT-style GUI loaded.")
+
 
