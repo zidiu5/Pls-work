@@ -19,6 +19,8 @@ local fireRemotes = {
     { "b", "using rainbow machine" },
 }
 
+
+--[[
 -- Liste of RemoteFunctions
 local functionRemotes = {
 	{ "b", "buy egg" },
@@ -53,6 +55,7 @@ local functionRemotes = {
     { "b", "use golden machine" },
     { "b", "use rainbow machine" },
 }
+]]
 
 -- FireServer Calls
 for _, args in ipairs(fireRemotes) do
@@ -64,6 +67,7 @@ for _, args in ipairs(fireRemotes) do
 	end)
 end
 
+--[[
 -- InvokeServer Calls 
 for _, args in ipairs(functionRemotes) do
 	task.spawn(function()
@@ -73,6 +77,7 @@ for _, args in ipairs(functionRemotes) do
 		end)
 	end)
 end
+]]
 
 print("All remotes loaded and executed!")
 
