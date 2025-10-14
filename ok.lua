@@ -1,3 +1,67 @@
+-- ==== Auto Remote Loader ====
+local RemotesFolder = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
+local MainRemote = RemotesFolder:WaitForChild("MAIN")
+
+-- Liste of RemotesEvents
+local fireRemotes = {
+	{ "b", "activate boost" },
+	{ "b", "boost activated" },
+	{ "b", "claim orbs" },
+	{ "b", "celloct lootbag" },
+	{ "b", "damage coin" },
+	{ "b", "enchanted pets" },
+	{ "b", "open egg" },
+    { "b", "opening egg" },
+    { "b", "orb added" },
+    { "b", "rain diamonds" },
+    { "b", "ur_lame_xd" },
+    { "b", "using golden machine" },
+    { "b", "using rainbow machine" },
+}
+
+-- Liste of RemoteFunctions
+local functionRemotes = {
+	{ "b", "buy egg" },
+    { "b", "delete several pets" },
+    { "b", "buy boost" },
+    { "b", "buy diamondpack" },
+    { "b", "checkdoublecoins" },
+    { "b", "enchant pet" },
+	{ "b", "halloweengiftbox3" },
+	{ "b", "join coin" },
+	{ "b", "redeem free gift" },
+	{ "b", "redeem pet collection" },
+	{ "b", "redeem rank rewards" },
+    { "b", "use golden machine" },
+    { "b", "use rainbow machine" },
+}
+
+-- FireServer Calls
+for _, args in ipairs(fireRemotes) do
+	task.spawn(function()
+		pcall(function()
+			MainRemote:FireServer(unpack(args))
+			print("[Fire] Remote executed:", table.concat(args, " | "))
+		end)
+	end)
+end
+
+-- InvokeServer Calls 
+for _, args in ipairs(functionRemotes) do
+	task.spawn(function()
+		pcall(function()
+			local result = MainRemote:InvokeServer(unpack(args))
+			print("[Invoke] Remote executed:", table.concat(args, " | "), "Result:", result)
+		end)
+	end)
+end
+
+print("All remotes loaded and executed!")
+
+
+
+
+
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
