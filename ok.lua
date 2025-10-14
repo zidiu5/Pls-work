@@ -2120,7 +2120,7 @@ end)
 
 
 
-
+--[[
 -- ==== SHOP TAB (final mit Boosts & Diamonds) ====
 local ShopTabButton = createTabButton("Shop")
 local ShopContent = createTabContent("Shop")
@@ -2339,3 +2339,4 @@ end
 ShopTabButton.MouseButton1Click:Connect(function()
     showTab("Shop") 
 end)
+]]
