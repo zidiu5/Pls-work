@@ -1,13 +1,16 @@
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
+--// ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TabbedGUI"
 ScreenGui.Parent = PlayerGui
 ScreenGui.ResetOnSpawn = false
 
+--// Main Frame
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
 MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -38,7 +41,6 @@ UIListLayout.Padding = UDim.new(0, 8)
 UIListLayout.FillDirection = Enum.FillDirection.Vertical
 UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
 UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     TabFrame.CanvasSize = UDim2.new(0,0,0,UIListLayout.AbsoluteContentSize.Y + 8)
 end)
@@ -49,6 +51,8 @@ ContentFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 ContentFrame.Size = UDim2.new(1, -140, 1, -38)
 ContentFrame.Position = UDim2.new(0, 140, 0, 38)
 
+--// Tabs & Content
+local Tabs = {}
 local function createTabButton(name)
     local btn = Instance.new("TextButton", TabFrame)
     btn.Name = name .. "Tab"
@@ -66,15 +70,6 @@ local function createTabButton(name)
     return btn
 end
 
-
-local spacer = Instance.new("Frame", TabFrame)
-spacer.Size = UDim2.new(1,0,0,0)
-spacer.BackgroundTransparency = 1
-
-local MainTabButton = createTabButton("Main")
-local FarmTabButton = createTabButton("Farm")
-
-local Tabs = {}
 local function createTabContent(name)
     local tab = Instance.new("Frame", ContentFrame)
     tab.Name = name .. "Content"
@@ -85,9 +80,25 @@ local function createTabContent(name)
     return tab
 end
 
+local spacer = Instance.new("Frame", TabFrame)
+spacer.Size = UDim2.new(1,0,0,0)
+spacer.BackgroundTransparency = 1
+
+local MainTabButton = createTabButton("Main")
+local FarmTabButton = createTabButton("Farm")
 local MainContent = createTabContent("Main")
 local FarmContent = createTabContent("Farm")
 
+local function showTab(name)
+    for n, frame in pairs(Tabs) do
+        frame.Visible = (n == name)
+    end
+end
+showTab("Main")
+MainTabButton.MouseButton1Click:Connect(function() showTab("Main") end)
+FarmTabButton.MouseButton1Click:Connect(function() showTab("Farm") end)
+
+--// Auto Collect Toggles
 local AutoSection = Instance.new("Frame", MainContent)
 AutoSection.Name = "AutoCollectsSection"
 AutoSection.BackgroundTransparency = 1
@@ -126,6 +137,8 @@ local function createToggle(parent, text, initial)
     label.TextColor3 = Color3.fromRGB(240,240,240)
     label.TextSize = 16
     label.Font = Enum.Font.SourceSans
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
 
     local toggleBtn = Instance.new("TextButton", frame)
     toggleBtn.Size = UDim2.new(0.18, -6, 1, 0)
@@ -140,156 +153,149 @@ local function createToggle(parent, text, initial)
     local state = initial
     local onToggle = function(newState) end
 
+    -- Exposed object and flags
+    local obj = {}
+    obj._state = state           -- aktueller Zustand (wird von außen geprüft)
+    obj._running = false        -- Laufende Hintergrund-Task (verhindert Duplikate)
+
     toggleBtn.MouseButton1Click:Connect(function()
         state = not state
+        obj._state = state
         toggleBtn.Text = state and "ON" or "OFF"
         toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
         onToggle(state)
     end)
 
-    local obj = {}
     function obj:SetCallback(fn) onToggle = fn end
     function obj:SetState(s)
         state = s
+        obj._state = s
         toggleBtn.Text = state and "ON" or "OFF"
         toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
     end
+
     return obj
 end
 
-local autoRank = false
-local autoOrbs = false
-
 local rankToggle = createToggle(TogglesList, "Auto Collect Rank Rewards", false)
-rankToggle:SetCallback(function(state)
-    autoRank = state
-    if state then
-        task.spawn(function()
-            while autoRank do
-                local success, err = pcall(function()
+local orbsToggle = createToggle(TogglesList, "Auto Collect Orbs", false)
+
+orbsToggle:SetCallback(function(enabled)
+    local Workspace = game:GetService("Workspace")
+    local Things = Workspace:WaitForChild("__THINGS")
+    local LootbagsFolder = Things:WaitForChild("Lootbags")
+    local OrbsFolder = Things:WaitForChild("Orbs")
+    local Remotes = Things:WaitForChild("__REMOTES")
+
+    -- Wenn ausgeschaltet: das ermöglicht laufenden Loop natürlich zu stoppen (er prüft orbsToggle._state)
+    if not enabled then
+        return
+    end
+
+    -- Verhindere, dass bei mehreren schnellen Klicks mehrere Loops gestartet werden
+    if orbsToggle._running then return end
+    orbsToggle._running = true
+
+    task.spawn(function()
+        while orbsToggle._state do
+            -- Lootbags sammeln
+            for _, lootbag in pairs(LootbagsFolder:GetChildren()) do
+                if lootbag and lootbag:IsA("MeshPart") then
                     local args = {
                         {
-                            { false },
-                            { 2 }
+                            {
+                                lootbag.Name,
+                                lootbag.Position
+                            },
+                            {
+                                false,
+                                false
+                            }
                         }
                     }
-                    if workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("__REMOTES") then
-                        local remotes = workspace.__THINGS.__REMOTES
-                        local remote = remotes:FindFirstChild("redeem rank rewards")
-                        if remote and remote.InvokeServer then
-                            remote:InvokeServer(unpack(args))
-                        end
-                    end
-                end)
-                if not success then
-
+                    Remotes:WaitForChild("collect lootbag"):FireServer(unpack(args))
+                    -- optional: pcall beim Destroy, falls außerhalb erreichbar
+                    pcall(function() lootbag:Destroy() end)
                 end
-                task.wait(10)
             end
-        end)
+
+            -- Orbs sammeln
+            for _, orb in pairs(OrbsFolder:GetChildren()) do
+                if orb and orb:IsA("Part") then
+                    local args = {
+                        {
+                            {
+                                {orb.Name}
+                            },
+                            {
+                                false
+                            }
+                        }
+                    }
+                    Remotes:WaitForChild("claim orbs"):FireServer(unpack(args))
+                    pcall(function() orb:Destroy() end)
+                end
+            end
+
+            task.wait(0.1)
+        end
+
+        -- Loop beendet -> running zurücksetzen
+        orbsToggle._running = false
+    end)
+end)
+
+
+--// Open/Close Button with Animation
+local OpenCloseBtn = Instance.new("TextButton", ScreenGui)
+OpenCloseBtn.Name = "OpenClose"
+OpenCloseBtn.Size = UDim2.new(0, 140, 0, 48)
+OpenCloseBtn.Position = UDim2.new(0.5, -70, 0.88, 0)
+OpenCloseBtn.Text = "Open GUI"
+OpenCloseBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+OpenCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenCloseBtn.TextSize = 18
+OpenCloseBtn.Font = Enum.Font.SourceSansBold
+OpenCloseBtn.AutoButtonColor = false
+
+--// Animated Border
+local Border = Instance.new("Frame", OpenCloseBtn)
+Border.Name = "AnimatedBorder"
+Border.Size = UDim2.new(1, 6, 1, 6)
+Border.Position = UDim2.new(0, -3, 0, -3)
+Border.BackgroundTransparency = 1
+
+local UIStroke = Instance.new("UIStroke", Border)
+UIStroke.Thickness = 3
+UIStroke.Color = Color3.fromRGB(255, 0, 0)
+
+task.spawn(function()
+    local hue = 0
+    while task.wait(0.03) do
+        hue = (hue + 2) % 360
+        UIStroke.Color = Color3.fromHSV(hue / 360, 1, 1)
     end
 end)
 
 
-local orbsToggle = createToggle(TogglesList, "Auto Collect Orbs", false)
-orbsToggle:SetCallback(function(state)
-    autoOrbs = state
-    if state then
-        task.spawn(function()
-            while autoOrbs do
-                local ok, _ = pcall(function()
-                    local orbsFolder = workspace.__THINGS and workspace.__THINGS:FindFirstChild("Orbs")
-                    if orbsFolder then
-                        for _, orb in pairs(orbsFolder:GetChildren()) do
-                            if orb and orb:IsA("Part") then
-                                local args = {
-                                    {
-                                        { { orb.Name } },
-                                        { false }
-                                    }
-                                }
-                                if workspace.__THINGS and workspace.__THINGS.__REMOTES then
-                                    local remotes = workspace.__THINGS.__REMOTES
-                                    local remote = remotes:FindFirstChild("claim orbs")
-                                    if remote and remote.FireServer then
-                                        remote:FireServer(unpack(args))
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end)
-                task.wait(2)
-            end
-        end)
-    end
-end)
 
-local FarmLabel = Instance.new("TextLabel", FarmContent)
-FarmLabel.Text = ""
-FarmLabel.Size = UDim2.new(1, 0, 0, 30)
-FarmLabel.Position = UDim2.new(0, 10, 0, 10)
-FarmLabel.BackgroundTransparency = 1
-FarmLabel.TextColor3 = Color3.fromRGB(255,255,255)
-FarmLabel.TextSize = 16
-
-local function showTab(name)
-    for n, frame in pairs(Tabs) do
-        frame.Visible = (n == name)
-    end
-end
-showTab("Main")
-MainTabButton.MouseButton1Click:Connect(function() showTab("Main") end)
-FarmTabButton.MouseButton1Click:Connect(function() showTab("Farm") end)
-
-local ButtonGui = Instance.new("Frame", ScreenGui)
-ButtonGui.Name = "ButtonGui"
-ButtonGui.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-ButtonGui.Size = UDim2.new(0, 140, 0, 48)
-ButtonGui.Position = UDim2.new(0.5, -70, 0.88, 0)
-ButtonGui.ZIndex = 10
-
-local ButtonLabel = Instance.new("TextButton", ButtonGui)
-ButtonLabel.Name = "ButtonLabel"
-ButtonLabel.Size = UDim2.new(1, 0, 1, 0)
-ButtonLabel.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-ButtonLabel.Text = "Open GUI"
-ButtonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-ButtonLabel.TextSize = 18
-ButtonLabel.Font = Enum.Font.SourceSansBold
-ButtonLabel.AutoButtonColor = false
-
-local function makeDraggable(frame, dragHandle, clickIndicator)
-    dragHandle = dragHandle or frame
-    local dragging = false
-    local dragInput, dragStart, startPos
-    local moved = false
+--// Funktion zum Draggen (Maus + Touch)
+local function makeDraggable(frame)
+    local dragging, dragInput, startPos, startInputPos
 
     local function update(input)
-        local delta = input.Position - dragStart
+        local delta = input.Position - startInputPos
         frame.Position = UDim2.new(
             startPos.X.Scale, startPos.X.Offset + delta.X,
             startPos.Y.Scale, startPos.Y.Offset + delta.Y
         )
-        if not moved and (math.abs(delta.X) > 2 or math.abs(delta.Y) > 2) then
-            moved = true
-            pcall(function()
-                dragHandle:SetAttribute("Moved", true)
-                if clickIndicator then clickIndicator:SetAttribute("Moved", true) end
-            end)
-        end
     end
 
-    dragHandle.InputBegan:Connect(function(input)
+    frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
-            dragStart = input.Position
+            startInputPos = input.Position
             startPos = frame.Position
-            moved = false
-            pcall(function()
-                dragHandle:SetAttribute("Moved", false)
-                if clickIndicator then clickIndicator:SetAttribute("Moved", false) end
-            end)
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -298,7 +304,7 @@ local function makeDraggable(frame, dragHandle, clickIndicator)
         end
     end)
 
-    dragHandle.InputChanged:Connect(function(input)
+    frame.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
@@ -311,18 +317,33 @@ local function makeDraggable(frame, dragHandle, clickIndicator)
     end)
 end
 
-makeDraggable(MainFrame, MainFrame)
+--// MainFrame und Open/Close Button draggable machen
+makeDraggable(MainFrame)
+makeDraggable(OpenCloseBtn)
 
-makeDraggable(ButtonGui, ButtonGui, ButtonLabel)
-
+--// Open/Close Button mit Animation
+local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local isOpen = false
-ButtonLabel.MouseButton1Click:Connect(function()
-    local wasMoved = ButtonLabel:GetAttribute("Moved")
-    if wasMoved then return end
+
+OpenCloseBtn.MouseButton1Click:Connect(function()
     isOpen = not isOpen
-    MainFrame.Visible = isOpen
-    ButtonLabel.Text = isOpen and "Close GUI" or "Open GUI"
+    OpenCloseBtn.Text = isOpen and "Close GUI" or "Open GUI"
+
+    if isOpen then
+        MainFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 600, 0, 360)}):Play()
+    else
+        local tween = TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)})
+        tween:Play()
+        tween.Completed:Connect(function()
+            if not isOpen then MainFrame.Visible = false end
+        end)
+    end
 end)
+
+
+
 
 -- FARM TAB
 local FarmScroll = Instance.new("ScrollingFrame", FarmContent)
@@ -1082,8 +1103,8 @@ for _, category in pairs(EggsFolder:GetChildren()) do
                                 }
                             }
                             pcall(function()
-                                if Remotes:FindFirstChild("buy egg") and Remotes["buy egg"].InvokeServer then
-                                    Remotes["buy egg"]:InvokeServer(unpack(args))
+                                if Remotes:FindFirstChild("buyx egg") and Remotes["buyx egg"].InvokeServer then
+                                    Remotes["buyx egg"]:InvokeServer(unpack(args))
                                 end
                             end)
                         end
@@ -1101,7 +1122,12 @@ end)
 
 EggsTabButton.MouseButton1Click:Connect(function()
     showTab("Eggs")
+
 end)
+
+
+
+
 
 
 
@@ -1441,7 +1467,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
 local Remotes = Workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
-local BuyEggRemote = Remotes:WaitForChild("buy egg")
+local BuyEggRemote = Remotes:WaitForChild("buyx egg")
 local DeletePetsRemote = Remotes:WaitForChild("delete several pets")
 
 local MiscTabButton = createTabButton("Misc")
@@ -1852,6 +1878,7 @@ header.TextSize = 18
 header.Font = Enum.Font.SourceSansBold
 
 local PetBox = Instance.new("TextBox", PetFinderContent)
+PetBox.Text = ""
 PetBox.Size = UDim2.new(0.7, -10, 0, 30)
 PetBox.Position = UDim2.new(0,10,0,50)
 PetBox.PlaceholderText = "Pet Name..."
@@ -1982,3 +2009,7 @@ FindButton.MouseButton1Click:Connect(refreshResults)
 PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
 end)
+
+
+
+
