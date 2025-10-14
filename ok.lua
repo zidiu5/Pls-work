@@ -67,7 +67,7 @@ for _, args in ipairs(fireRemotes) do
 		end)
 	end)
 end
-]]
+
 
 -- InvokeServer Calls 
 for _, args in ipairs(functionRemotes) do
@@ -81,7 +81,7 @@ end
 
 
 print("All remotes loaded and executed!")
-
+]]
 
 
 
