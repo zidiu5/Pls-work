@@ -1,3 +1,296 @@
+--[[local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+-- ===================== ScreenGui & Frame =====================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 350, 0, 250)
+frame.Position = UDim2.new(0.5, -175, 0.5, -125)
+frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+frame.BorderSizePixel = 2
+frame.Parent = screenGui
+
+-- Frame draggable
+local dragging = false
+local dragInput, mousePos, framePos
+
+local function update(input)
+	local delta = input.Position - mousePos
+	frame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		mousePos = input.Position
+		framePos = frame.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+frame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		update(input)
+	end
+end)
+
+-- UI ELEMENTS 
+-- Label
+local labelRadius = Instance.new("TextLabel")
+labelRadius.Size = UDim2.new(1, -20, 0, 25)
+labelRadius.Position = UDim2.new(0, 10, 0, 10)
+labelRadius.BackgroundTransparency = 1
+labelRadius.TextColor3 = Color3.fromRGB(255, 255, 255)
+labelRadius.Text = "Farm Radius:"
+labelRadius.TextScaled = true
+labelRadius.Parent = frame
+
+-- TextBox
+local radiusBox = Instance.new("TextBox")
+radiusBox.Size = UDim2.new(1, -20, 0, 25)
+radiusBox.Position = UDim2.new(0, 10, 0, 40)
+radiusBox.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+radiusBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+radiusBox.Text = "50"
+radiusBox.ClearTextOnFocus = false
+radiusBox.Parent = frame
+
+-- Toggle Button
+local toggleRadiusBtn = Instance.new("TextButton")
+toggleRadiusBtn.Size = UDim2.new(1, -20, 0, 35)
+toggleRadiusBtn.Position = UDim2.new(0, 10, 0, 70)
+toggleRadiusBtn.Text = "Radius Farm: OFF"
+toggleRadiusBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+toggleRadiusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleRadiusBtn.Parent = frame
+
+-- Label
+local labelArea = Instance.new("TextLabel")
+labelArea.Size = UDim2.new(1, -20, 0, 25)
+labelArea.Position = UDim2.new(0, 10, 0, 110)
+labelArea.BackgroundTransparency = 1
+labelArea.TextColor3 = Color3.fromRGB(255, 255, 255)
+labelArea.Text = "Select Area:"
+labelArea.TextScaled = true
+labelArea.Parent = frame
+
+-- Dropdown
+local areaDropdown = Instance.new("TextButton")
+areaDropdown.Size = UDim2.new(1, -20, 0, 25)
+areaDropdown.Position = UDim2.new(0, 10, 0, 140)
+areaDropdown.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+areaDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+areaDropdown.Text = "None"
+areaDropdown.Parent = frame
+
+-- Toggle Button
+local toggleAreaBtn = Instance.new("TextButton")
+toggleAreaBtn.Size = UDim2.new(1, -20, 0, 35)
+toggleAreaBtn.Position = UDim2.new(0, 10, 0, 170)
+toggleAreaBtn.Text = "Area Farm: OFF"
+toggleAreaBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+toggleAreaBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleAreaBtn.Parent = frame
+
+-- LOGIC 
+local radiusFarmEnabled = false
+local areaFarmEnabled = false
+local farmRadius = 50
+local selectedArea = nil
+
+toggleRadiusBtn.MouseButton1Click:Connect(function()
+	radiusFarmEnabled = not radiusFarmEnabled
+	toggleRadiusBtn.Text = radiusFarmEnabled and "Radius Farm: ON" or "Radius Farm: OFF"
+end)
+
+toggleAreaBtn.MouseButton1Click:Connect(function()
+	areaFarmEnabled = not areaFarmEnabled
+	toggleAreaBtn.Text = areaFarmEnabled and "Area Farm: ON" or "Area Farm: OFF"
+end)
+
+-- Radius TextBox live
+radiusBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local value = tonumber(radiusBox.Text)
+	if value then
+		farmRadius = value
+	end
+end)
+
+-- Area Dropdown
+local function updateAreas()
+	local coinsFolder = workspace.__THINGS:FindFirstChild("Coins")
+	if not coinsFolder then return end
+	local areaSet = {}
+	for _, coin in pairs(coinsFolder:GetChildren()) do
+		local area = coin:GetAttribute("Area")
+		if area and not areaSet[area] then
+			areaSet[area] = true
+		end
+	end
+	return areaSet
+end
+
+areaDropdown.MouseButton1Click:Connect(function()
+	local areas = updateAreas()
+	local list = {}
+	for areaName in pairs(areas) do table.insert(list, areaName) end
+	table.sort(list)
+
+	local menu = Instance.new("Frame")
+	menu.Size = UDim2.new(0, areaDropdown.AbsoluteSize.X, 0, #list*25)
+	menu.Position = areaDropdown.Position + UDim2.new(0,0,0,areaDropdown.AbsoluteSize.Y)
+	menu.BackgroundColor3 = Color3.fromRGB(60,60,60)
+	menu.Parent = frame
+
+	for i, areaName in pairs(list) do
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(1,0,0,25)
+		btn.Position = UDim2.new(0,0,0,(i-1)*25)
+		btn.Text = areaName
+		btn.BackgroundColor3 = Color3.fromRGB(100,100,100)
+		btn.TextColor3 = Color3.fromRGB(255,255,255)
+		btn.Parent = menu
+		btn.MouseButton1Click:Connect(function()
+			selectedArea = areaName
+			areaDropdown.Text = areaName
+			menu:Destroy()
+		end)
+	end
+end)
+
+-- Loop
+task.spawn(function()
+	while true do
+		task.wait(0.05)
+		local petsFolder = workspace.__THINGS:WaitForChild("Pets")
+		local coinsFolder = workspace.__THINGS:FindFirstChild("Coins")
+		if not coinsFolder then continue end
+
+		local myPets = {}
+		for _, pet in pairs(petsFolder:GetChildren()) do
+			local owner = pet:GetAttribute("Owner")
+			if owner == player or owner == player.Name or tostring(owner) == tostring(player.UserId) or tostring(owner):find(player.Name) then
+				table.insert(myPets, pet.Name)
+			end
+		end
+
+		-- -------- Radius Farm --------
+		if radiusFarmEnabled then
+			local availableCoins = {}
+			for _, coin in pairs(coinsFolder:GetChildren()) do
+				if coin:FindFirstChild("POS") then
+					local distance = (player.Character.PrimaryPart.Position - coin.POS.Position).Magnitude
+					if distance <= farmRadius then
+						table.insert(availableCoins, coin)
+					end
+				end
+			end
+			for i, petId in pairs(myPets) do
+				local coin = availableCoins[i]
+				if coin then
+					local coinId = coin.Name
+					local joinArgs = {{{coinId,{petId}},{false,false}}}
+					pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
+					local farmArgs = {{{coinId,petId},{false,false}}}
+					pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
+				end
+			end
+		end
+
+		-- -------- Area Farm --------
+		if areaFarmEnabled and selectedArea then
+			local availableCoins = {}
+			for _, coin in pairs(coinsFolder:GetChildren()) do
+				if coin:GetAttribute("Area") == selectedArea then
+					table.insert(availableCoins, coin)
+				end
+			end
+			for i, petId in pairs(myPets) do
+				local coin = availableCoins[i]
+				if coin then
+					local coinId = coin.Name
+					local joinArgs = {{{coinId,{petId}},{false,false}}}
+										pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
+					local farmArgs = {{{coinId, petId},{false,false}}}
+					pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
+				end
+			end
+		end
+	end
+end)
+]]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
