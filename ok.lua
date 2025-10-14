@@ -2109,3 +2109,232 @@ FindButton.MouseButton1Click:Connect(refreshResults)
 PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
 end)
+
+
+
+
+
+
+
+
+
+
+
+-- ==== SHOP TAB (final mit Boosts & Diamonds) ====
+local ShopTabButton = createTabButton("Shop")
+local ShopContent = createTabContent("Shop")
+
+-- Inner Tabs
+local innerTabs = {"Egg/Hatch","Boosts","Diamonds"}
+local innerTabFrames = {}
+local innerSelected = "Egg/Hatch"
+
+-- Container für inneren Button-Bereich
+local innerButtonHolder = Instance.new("Frame", ShopContent)
+innerButtonHolder.Size = UDim2.new(1,0,0,40)
+innerButtonHolder.Position = UDim2.new(0,0,0,10)
+innerButtonHolder.BackgroundTransparency = 1
+
+-- Layout für die Buttons (zentriert)
+local innerLayout = Instance.new("UIListLayout", innerButtonHolder)
+innerLayout.FillDirection = Enum.FillDirection.Horizontal
+innerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+innerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+innerLayout.Padding = UDim.new(0,8)
+
+-- Erzeuge die Inner Tabs + Buttons
+for _, tabName in ipairs(innerTabs) do
+    local btn = Instance.new("TextButton", innerButtonHolder)
+    btn.Text = tabName
+    btn.Size = UDim2.new(0,120,1,0)
+    btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 15
+    btn.AutoButtonColor = false
+
+    local frame = Instance.new("Frame", ShopContent)
+    frame.Size = UDim2.new(1,0,1,-60)
+    frame.Position = UDim2.new(0,0,0,55)
+    frame.BackgroundTransparency = 1
+    frame.Visible = (tabName==innerSelected)
+    innerTabFrames[tabName] = frame
+
+    btn.MouseButton1Click:Connect(function()
+        for n,f in pairs(innerTabFrames) do f.Visible = (n==tabName) end
+        innerSelected = tabName
+    end)
+end
+
+-- Helper: ScrollFrame + Layout
+local function createScroll(parent)
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1,0,1,0)
+    scroll.BackgroundTransparency = 1
+    scroll.ScrollBarThickness = 6
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    local layout = Instance.new("UIListLayout", scroll)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0,10)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.VerticalAlignment = Enum.VerticalAlignment.Top
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+    end)
+    return scroll
+end
+
+-- Gemeinsame Toggle-Tabelle für alle Tabs
+local toggleStates = {}
+
+-- Toggle Factory
+local function createToggle(parent, key, text, price, callback)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1,-20,0,50)
+    frame.BackgroundTransparency = 1
+
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1,0,0,20)
+    title.Position = UDim2.new(0,0,0,0)
+    title.BackgroundTransparency = 1
+    title.Text = text
+    title.TextColor3 = Color3.fromRGB(255,255,255)
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 16
+
+    local priceLabel = Instance.new("TextLabel", frame)
+    priceLabel.Size = UDim2.new(1,0,0,16)
+    priceLabel.Position = UDim2.new(0,0,0,22)
+    priceLabel.BackgroundTransparency = 1
+    priceLabel.Text = price
+    priceLabel.TextColor3 = Color3.fromRGB(200,200,200)
+    priceLabel.Font = Enum.Font.SourceSans
+    priceLabel.TextSize = 14
+
+    local toggleBtn = Instance.new("TextButton", frame)
+    toggleBtn.Size = UDim2.new(0.25,0,0,36)
+    toggleBtn.Position = UDim2.new(0.725,0,0,7)
+    toggleBtn.TextSize = 16
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.Text = "OFF"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(120,120,120)
+    toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    toggleBtn.AutoButtonColor = false
+
+    toggleStates[key] = false
+    toggleBtn.MouseButton1Click:Connect(function()
+        toggleStates[key] = not toggleStates[key]
+        local state = toggleStates[key]
+        toggleBtn.Text = state and "ON" or "OFF"
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
+        if callback then
+            task.spawn(function() callback(state, key) end)
+        end
+    end)
+end
+
+-- ==== EGG/HATCH TAB ====
+local eggScroll = createScroll(innerTabFrames["Egg/Hatch"])
+
+local function createEggToggle(name, price, remoteName)
+    createToggle(eggScroll, remoteName, name, price, function(state)
+        if state then
+            task.spawn(function()
+                while toggleStates[remoteName] do
+                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(remoteName)
+                    if remote then
+                        local args = { { { false }, { 2 } } }
+                        remote:InvokeServer(unpack(args))
+                    end
+                    task.wait(0.3)
+                end
+            end)
+        end
+    end)
+end
+
+-- Eggs 1/3 Hatch
+createEggToggle("Exclusive RNG Egg (1 Hatch)", "2.5M RNG Coins", "exclusiverngeggz1")
+createEggToggle("Exclusive RNG Egg (3 Hatch)", "7M RNG Coins", "exclusiverngeggz3")
+createEggToggle("Exclusive Halloween Gifts (1 Hatch)", "20M Halloween Coins", "halloweengiftbox1")
+createEggToggle("Exclusive Halloween Gifts (3 Hatch)", "55M Halloween Coins", "halloweengiftbox3")
+createEggToggle("Exclusive Ghoul Egg (1 Hatch)", "40M Halloween Coins", "exclusiveghoulegg1")
+createEggToggle("Exclusive Ghoul Egg (3 Hatch)", "115M Halloween Coins", "exclusiveghoulegg3")
+createEggToggle("Exclusive Pumpkin Egg (1 Hatch)", "23.5M Halloween Coins", "exclusivepumpkinegg1")
+createEggToggle("Exclusive Pumpkin Egg (3 Hatch)", "75M Halloween Coins", "exclusivepumpkinegg3")
+createEggToggle("Exclusive Pixel Egg (1 Hatch)", "7M Diamonds", "exclusiveeggnormal")
+createEggToggle("Exclusive Pixel Egg (3 Hatch)", "18.5M Diamonds", "exclusiveeggnormal3")
+createEggToggle("Exclusive Party Egg (1 Hatch)", "5M Diamonds", "exclusiveeggparty")
+createEggToggle("Exclusive Party Egg (3 Hatch)", "15M Diamonds", "exclusiveeggparty3")
+
+-- Bundles / Single Eggs
+createEggToggle("Vampire Bundle", "500M Diamonds", "halloweenbundlep2ww")
+createEggToggle("RNG Mechatronic Bundle", "300M Diamonds", "rngbundle69")
+createEggToggle("Exclusive Mystery Huge Egg", "365M Diamonds", "exclusivemysteryegg")
+createEggToggle("Pixel Dragon Bundle", "255M Diamonds", "bundlesf2ptech")
+createEggToggle("Party Bundle", "315M Diamonds", "bundlesf2p")
+
+-- ==== BOOSTS TAB (fix) ====
+local boostScroll = createScroll(innerTabFrames["Boosts"])
+local boosts = {
+    {name="Triple Coins", price="10k Diamonds", remote="buy boost"},
+    {name="Triple Damage", price="15k Diamonds", remote="buy boost"},
+    {name="Super Lucky", price="20k Diamonds", remote="buy boost"},
+    {name="Ultra Lucky", price="25k Diamonds", remote="buy boost"},
+    {name="Boost Pack", price="1M Diamonds", remote="boostspackkzzzrileys"},
+}
+
+for _,b in ipairs(boosts) do
+    createToggle(boostScroll, b.remote..b.name, b.name, b.price, function(state)
+        if state then
+            task.spawn(function()
+                while toggleStates[b.remote..b.name] do
+                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(b.remote)
+                    if remote then
+                        local args
+                        if b.name == "Boost Pack" then
+                            args = { { {false}, {2} } }  -- Boost Pack
+                        else
+                            args = { { {b.name}, {false} } }  -- normal Boosts
+                        end
+                        remote:InvokeServer(unpack(args))
+                    end
+                    task.wait(0.3)
+                end
+            end)
+        end
+    end)
+end
+
+
+-- ==== DIAMONDS TAB ====
+local diamondScroll = createScroll(innerTabFrames["Diamonds"])
+local diamonds = {
+    {name="Small", price="5B Coins", remote="buy diamondpack", idx=1},
+    {name="Medium", price="17.5B Coins", remote="buy diamondpack", idx=2},
+    {name="Large", price="40B Fantasy Coins", remote="buy diamondpack", idx=3},
+    {name="625k", price="85B Tech Coins", remote="buy diamondpack", idx=5},
+    {name="1.5M", price="295M Rainbow Coins", remote="buy diamondpack", idx=8},
+    {name="600k", price="92.5M RNG Coins", remote="buy diamondpack", idx=10},
+}
+
+for _,d in ipairs(diamonds) do
+    createToggle(diamondScroll, d.remote..d.idx, d.name.." Diamonds", d.price, function(state)
+        if state then
+            task.spawn(function()
+                while toggleStates[d.remote..d.idx] do
+                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(d.remote)
+                    if remote then
+                        local args = {{{d.idx},{false}}}
+                        remote:InvokeServer(unpack(args))
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end)
+end
+
+ShopTabButton.MouseButton1Click:Connect(function()
+    showTab("Shop") 
+end)
