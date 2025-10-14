@@ -1,7 +1,8 @@
+--[[
 -- ==== Auto Remote Loader ====
 local RemotesFolder = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
 local MainRemote = RemotesFolder:WaitForChild("MAIN")
---[[
+
 -- Liste of RemotesEvents
 local fireRemotes = {
 	{ "b", "activate boost" },
@@ -18,7 +19,7 @@ local fireRemotes = {
     { "b", "using golden machine" },
     { "b", "using rainbow machine" },
 }
-]]
+
 
 
 -- Liste of RemoteFunctions
@@ -56,7 +57,7 @@ local functionRemotes = {
     { "b", "use rainbow machine" },
 }
 
---[[
+
 -- FireServer Calls
 for _, args in ipairs(fireRemotes) do
 	task.spawn(function()
