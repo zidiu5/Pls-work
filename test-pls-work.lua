@@ -2152,6 +2152,8 @@ createEggToggle("Exclusive RNG Egg (1 Hatch)", "2.5M RNG Coins", "exclusiverngeg
 createEggToggle("Exclusive RNG Egg (3 Hatch)", "7M RNG Coins", "exclusiverngeggz3")
 createEggToggle("Exclusive Halloween Gifts (1 Hatch)", "20M Halloween Coins", "halloweengiftbox1")
 createEggToggle("Exclusive Halloween Gifts (3 Hatch)", "55M Halloween Coins", "halloweengiftbox3")
+createEggToggle("Exclusive Nightmare Egg (1 Hatch)", "95M Halloween Coins", "nightmareeggs3")
+createEggToggle("Exclusive Nightmare Egg (3 Hatch)", "265M Halloween Coins", "nightmareeggs3")
 createEggToggle("Exclusive Ghoul Egg (1 Hatch)", "40M Halloween Coins", "exclusiveghoulegg1")
 createEggToggle("Exclusive Ghoul Egg (3 Hatch)", "115M Halloween Coins", "exclusiveghoulegg3")
 createEggToggle("Exclusive Pumpkin Egg (1 Hatch)", "23.5M Halloween Coins", "exclusivepumpkinegg1")
@@ -2232,3 +2234,4 @@ end
 ShopTabButton.MouseButton1Click:Connect(function()
     showTab("Shop") 
 end)
+
