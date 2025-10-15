@@ -1,296 +1,3 @@
---[[local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local player = Players.LocalPlayer
-
--- ===================== ScreenGui & Frame =====================
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = player:WaitForChild("PlayerGui")
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 350, 0, 250)
-frame.Position = UDim2.new(0.5, -175, 0.5, -125)
-frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-frame.BorderSizePixel = 2
-frame.Parent = screenGui
-
--- Frame draggable
-local dragging = false
-local dragInput, mousePos, framePos
-
-local function update(input)
-	local delta = input.Position - mousePos
-	frame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
-end
-
-frame.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		mousePos = input.Position
-		framePos = frame.Position
-
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
-end)
-
-frame.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		dragInput = input
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if input == dragInput and dragging then
-		update(input)
-	end
-end)
-
--- UI ELEMENTS 
--- Label
-local labelRadius = Instance.new("TextLabel")
-labelRadius.Size = UDim2.new(1, -20, 0, 25)
-labelRadius.Position = UDim2.new(0, 10, 0, 10)
-labelRadius.BackgroundTransparency = 1
-labelRadius.TextColor3 = Color3.fromRGB(255, 255, 255)
-labelRadius.Text = "Farm Radius:"
-labelRadius.TextScaled = true
-labelRadius.Parent = frame
-
--- TextBox
-local radiusBox = Instance.new("TextBox")
-radiusBox.Size = UDim2.new(1, -20, 0, 25)
-radiusBox.Position = UDim2.new(0, 10, 0, 40)
-radiusBox.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-radiusBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-radiusBox.Text = "50"
-radiusBox.ClearTextOnFocus = false
-radiusBox.Parent = frame
-
--- Toggle Button
-local toggleRadiusBtn = Instance.new("TextButton")
-toggleRadiusBtn.Size = UDim2.new(1, -20, 0, 35)
-toggleRadiusBtn.Position = UDim2.new(0, 10, 0, 70)
-toggleRadiusBtn.Text = "Radius Farm: OFF"
-toggleRadiusBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-toggleRadiusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleRadiusBtn.Parent = frame
-
--- Label
-local labelArea = Instance.new("TextLabel")
-labelArea.Size = UDim2.new(1, -20, 0, 25)
-labelArea.Position = UDim2.new(0, 10, 0, 110)
-labelArea.BackgroundTransparency = 1
-labelArea.TextColor3 = Color3.fromRGB(255, 255, 255)
-labelArea.Text = "Select Area:"
-labelArea.TextScaled = true
-labelArea.Parent = frame
-
--- Dropdown
-local areaDropdown = Instance.new("TextButton")
-areaDropdown.Size = UDim2.new(1, -20, 0, 25)
-areaDropdown.Position = UDim2.new(0, 10, 0, 140)
-areaDropdown.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-areaDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
-areaDropdown.Text = "None"
-areaDropdown.Parent = frame
-
--- Toggle Button
-local toggleAreaBtn = Instance.new("TextButton")
-toggleAreaBtn.Size = UDim2.new(1, -20, 0, 35)
-toggleAreaBtn.Position = UDim2.new(0, 10, 0, 170)
-toggleAreaBtn.Text = "Area Farm: OFF"
-toggleAreaBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-toggleAreaBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleAreaBtn.Parent = frame
-
--- LOGIC 
-local radiusFarmEnabled = false
-local areaFarmEnabled = false
-local farmRadius = 50
-local selectedArea = nil
-
-toggleRadiusBtn.MouseButton1Click:Connect(function()
-	radiusFarmEnabled = not radiusFarmEnabled
-	toggleRadiusBtn.Text = radiusFarmEnabled and "Radius Farm: ON" or "Radius Farm: OFF"
-end)
-
-toggleAreaBtn.MouseButton1Click:Connect(function()
-	areaFarmEnabled = not areaFarmEnabled
-	toggleAreaBtn.Text = areaFarmEnabled and "Area Farm: ON" or "Area Farm: OFF"
-end)
-
--- Radius TextBox live
-radiusBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local value = tonumber(radiusBox.Text)
-	if value then
-		farmRadius = value
-	end
-end)
-
--- Area Dropdown
-local function updateAreas()
-	local coinsFolder = workspace.__THINGS:FindFirstChild("Coins")
-	if not coinsFolder then return end
-	local areaSet = {}
-	for _, coin in pairs(coinsFolder:GetChildren()) do
-		local area = coin:GetAttribute("Area")
-		if area and not areaSet[area] then
-			areaSet[area] = true
-		end
-	end
-	return areaSet
-end
-
-areaDropdown.MouseButton1Click:Connect(function()
-	local areas = updateAreas()
-	local list = {}
-	for areaName in pairs(areas) do table.insert(list, areaName) end
-	table.sort(list)
-
-	local menu = Instance.new("Frame")
-	menu.Size = UDim2.new(0, areaDropdown.AbsoluteSize.X, 0, #list*25)
-	menu.Position = areaDropdown.Position + UDim2.new(0,0,0,areaDropdown.AbsoluteSize.Y)
-	menu.BackgroundColor3 = Color3.fromRGB(60,60,60)
-	menu.Parent = frame
-
-	for i, areaName in pairs(list) do
-		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.new(1,0,0,25)
-		btn.Position = UDim2.new(0,0,0,(i-1)*25)
-		btn.Text = areaName
-		btn.BackgroundColor3 = Color3.fromRGB(100,100,100)
-		btn.TextColor3 = Color3.fromRGB(255,255,255)
-		btn.Parent = menu
-		btn.MouseButton1Click:Connect(function()
-			selectedArea = areaName
-			areaDropdown.Text = areaName
-			menu:Destroy()
-		end)
-	end
-end)
-
--- Loop
-task.spawn(function()
-	while true do
-		task.wait(0.05)
-		local petsFolder = workspace.__THINGS:WaitForChild("Pets")
-		local coinsFolder = workspace.__THINGS:FindFirstChild("Coins")
-		if not coinsFolder then continue end
-
-		local myPets = {}
-		for _, pet in pairs(petsFolder:GetChildren()) do
-			local owner = pet:GetAttribute("Owner")
-			if owner == player or owner == player.Name or tostring(owner) == tostring(player.UserId) or tostring(owner):find(player.Name) then
-				table.insert(myPets, pet.Name)
-			end
-		end
-
-		-- -------- Radius Farm --------
-		if radiusFarmEnabled then
-			local availableCoins = {}
-			for _, coin in pairs(coinsFolder:GetChildren()) do
-				if coin:FindFirstChild("POS") then
-					local distance = (player.Character.PrimaryPart.Position - coin.POS.Position).Magnitude
-					if distance <= farmRadius then
-						table.insert(availableCoins, coin)
-					end
-				end
-			end
-			for i, petId in pairs(myPets) do
-				local coin = availableCoins[i]
-				if coin then
-					local coinId = coin.Name
-					local joinArgs = {{{coinId,{petId}},{false,false}}}
-					pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
-					local farmArgs = {{{coinId,petId},{false,false}}}
-					pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
-				end
-			end
-		end
-
-		-- -------- Area Farm --------
-		if areaFarmEnabled and selectedArea then
-			local availableCoins = {}
-			for _, coin in pairs(coinsFolder:GetChildren()) do
-				if coin:GetAttribute("Area") == selectedArea then
-					table.insert(availableCoins, coin)
-				end
-			end
-			for i, petId in pairs(myPets) do
-				local coin = availableCoins[i]
-				if coin then
-					local coinId = coin.Name
-					local joinArgs = {{{coinId,{petId}},{false,false}}}
-										pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
-					local farmArgs = {{{coinId, petId},{false,false}}}
-					pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
-				end
-			end
-		end
-	end
-end)
-]]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -2307,3 +2014,221 @@ end)
 
 
 
+-- ==== SHOP TAB (final mit Boosts & Diamonds) ====
+local ShopTabButton = createTabButton("Shop")
+local ShopContent = createTabContent("Shop")
+
+-- Inner Tabs
+local innerTabs = {"Egg/Hatch","Boosts","Diamonds"}
+local innerTabFrames = {}
+local innerSelected = "Egg/Hatch"
+
+-- Container für inneren Button-Bereich
+local innerButtonHolder = Instance.new("Frame", ShopContent)
+innerButtonHolder.Size = UDim2.new(1,0,0,40)
+innerButtonHolder.Position = UDim2.new(0,0,0,10)
+innerButtonHolder.BackgroundTransparency = 1
+
+-- Layout für die Buttons (zentriert)
+local innerLayout = Instance.new("UIListLayout", innerButtonHolder)
+innerLayout.FillDirection = Enum.FillDirection.Horizontal
+innerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+innerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+innerLayout.Padding = UDim.new(0,8)
+
+-- Erzeuge die Inner Tabs + Buttons
+for _, tabName in ipairs(innerTabs) do
+    local btn = Instance.new("TextButton", innerButtonHolder)
+    btn.Text = tabName
+    btn.Size = UDim2.new(0,120,1,0)
+    btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 15
+    btn.AutoButtonColor = false
+
+    local frame = Instance.new("Frame", ShopContent)
+    frame.Size = UDim2.new(1,0,1,-60)
+    frame.Position = UDim2.new(0,0,0,55)
+    frame.BackgroundTransparency = 1
+    frame.Visible = (tabName==innerSelected)
+    innerTabFrames[tabName] = frame
+
+    btn.MouseButton1Click:Connect(function()
+        for n,f in pairs(innerTabFrames) do f.Visible = (n==tabName) end
+        innerSelected = tabName
+    end)
+end
+
+-- Helper: ScrollFrame + Layout
+local function createScroll(parent)
+    local scroll = Instance.new("ScrollingFrame", parent)
+    scroll.Size = UDim2.new(1,0,1,0)
+    scroll.BackgroundTransparency = 1
+    scroll.ScrollBarThickness = 6
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    local layout = Instance.new("UIListLayout", scroll)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0,10)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.VerticalAlignment = Enum.VerticalAlignment.Top
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+    end)
+    return scroll
+end
+
+-- Gemeinsame Toggle-Tabelle für alle Tabs
+local toggleStates = {}
+
+-- Toggle Factory
+local function createToggle(parent, key, text, price, callback)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1,-20,0,50)
+    frame.BackgroundTransparency = 1
+
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1,0,0,20)
+    title.Position = UDim2.new(0,0,0,0)
+    title.BackgroundTransparency = 1
+    title.Text = text
+    title.TextColor3 = Color3.fromRGB(255,255,255)
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 16
+
+    local priceLabel = Instance.new("TextLabel", frame)
+    priceLabel.Size = UDim2.new(1,0,0,16)
+    priceLabel.Position = UDim2.new(0,0,0,22)
+    priceLabel.BackgroundTransparency = 1
+    priceLabel.Text = price
+    priceLabel.TextColor3 = Color3.fromRGB(200,200,200)
+    priceLabel.Font = Enum.Font.SourceSans
+    priceLabel.TextSize = 14
+
+    local toggleBtn = Instance.new("TextButton", frame)
+    toggleBtn.Size = UDim2.new(0.25,0,0,36)
+    toggleBtn.Position = UDim2.new(0.725,0,0,7)
+    toggleBtn.TextSize = 16
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.Text = "OFF"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(120,120,120)
+    toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    toggleBtn.AutoButtonColor = false
+
+    toggleStates[key] = false
+    toggleBtn.MouseButton1Click:Connect(function()
+        toggleStates[key] = not toggleStates[key]
+        local state = toggleStates[key]
+        toggleBtn.Text = state and "ON" or "OFF"
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
+        if callback then
+            task.spawn(function() callback(state, key) end)
+        end
+    end)
+end
+
+-- ==== EGG/HATCH TAB ====
+local eggScroll = createScroll(innerTabFrames["Egg/Hatch"])
+
+local function createEggToggle(name, price, remoteName)
+    createToggle(eggScroll, remoteName, name, price, function(state)
+        if state then
+            task.spawn(function()
+                while toggleStates[remoteName] do
+                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(remoteName)
+                    if remote then
+                        local args = { { { false }, { 2 } } }
+                        remote:InvokeServer(unpack(args))
+                    end
+                    task.wait(0.3)
+                end
+            end)
+        end
+    end)
+end
+
+-- Eggs 1/3 Hatch
+createEggToggle("Exclusive RNG Egg (1 Hatch)", "2.5M RNG Coins", "exclusiverngeggz1")
+createEggToggle("Exclusive RNG Egg (3 Hatch)", "7M RNG Coins", "exclusiverngeggz3")
+createEggToggle("Exclusive Halloween Gifts (1 Hatch)", "20M Halloween Coins", "halloweengiftbox1")
+createEggToggle("Exclusive Halloween Gifts (3 Hatch)", "55M Halloween Coins", "halloweengiftbox3")
+createEggToggle("Exclusive Ghoul Egg (1 Hatch)", "40M Halloween Coins", "exclusiveghoulegg1")
+createEggToggle("Exclusive Ghoul Egg (3 Hatch)", "115M Halloween Coins", "exclusiveghoulegg3")
+createEggToggle("Exclusive Pumpkin Egg (1 Hatch)", "23.5M Halloween Coins", "exclusivepumpkinegg1")
+createEggToggle("Exclusive Pumpkin Egg (3 Hatch)", "75M Halloween Coins", "exclusivepumpkinegg3")
+createEggToggle("Exclusive Pixel Egg (1 Hatch)", "7M Diamonds", "exclusiveeggnormal")
+createEggToggle("Exclusive Pixel Egg (3 Hatch)", "18.5M Diamonds", "exclusiveeggnormal3")
+createEggToggle("Exclusive Party Egg (1 Hatch)", "5M Diamonds", "exclusiveeggparty")
+createEggToggle("Exclusive Party Egg (3 Hatch)", "15M Diamonds", "exclusiveeggparty3")
+
+-- Bundles / Single Eggs
+createEggToggle("Vampire Bundle", "500M Diamonds", "halloweenbundlep2ww")
+createEggToggle("RNG Mechatronic Bundle", "300M Diamonds", "rngbundle69")
+createEggToggle("Exclusive Mystery Huge Egg", "365M Diamonds", "exclusivemysteryegg")
+createEggToggle("Pixel Dragon Bundle", "255M Diamonds", "bundlesf2ptech")
+createEggToggle("Party Bundle", "315M Diamonds", "bundlesf2p")
+
+-- ==== BOOSTS TAB (fix) ====
+local boostScroll = createScroll(innerTabFrames["Boosts"])
+local boosts = {
+    {name="Triple Coins", price="10k Diamonds", remote="buy boost"},
+    {name="Triple Damage", price="15k Diamonds", remote="buy boost"},
+    {name="Super Lucky", price="20k Diamonds", remote="buy boost"},
+    {name="Ultra Lucky", price="25k Diamonds", remote="buy boost"},
+    {name="Boost Pack", price="1M Diamonds", remote="boostspackkzzzrileys"},
+}
+
+for _,b in ipairs(boosts) do
+    createToggle(boostScroll, b.remote..b.name, b.name, b.price, function(state)
+        if state then
+            task.spawn(function()
+                while toggleStates[b.remote..b.name] do
+                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(b.remote)
+                    if remote then
+                        local args
+                        if b.name == "Boost Pack" then
+                            args = { { {false}, {2} } }  -- Boost Pack
+                        else
+                            args = { { {b.name}, {false} } }  -- normal Boosts
+                        end
+                        remote:InvokeServer(unpack(args))
+                    end
+                    task.wait(0.3)
+                end
+            end)
+        end
+    end)
+end
+
+
+-- ==== DIAMONDS TAB ====
+local diamondScroll = createScroll(innerTabFrames["Diamonds"])
+local diamonds = {
+    {name="Small", price="5B Coins", remote="buy diamondpack", idx=1},
+    {name="Medium", price="17.5B Coins", remote="buy diamondpack", idx=2},
+    {name="Large", price="40B Fantasy Coins", remote="buy diamondpack", idx=3},
+    {name="625k", price="85B Tech Coins", remote="buy diamondpack", idx=5},
+    {name="1.5M", price="295M Rainbow Coins", remote="buy diamondpack", idx=8},
+    {name="600k", price="92.5M RNG Coins", remote="buy diamondpack", idx=10},
+}
+
+for _,d in ipairs(diamonds) do
+    createToggle(diamondScroll, d.remote..d.idx, d.name.." Diamonds", d.price, function(state)
+        if state then
+            task.spawn(function()
+                while toggleStates[d.remote..d.idx] do
+                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(d.remote)
+                    if remote then
+                        local args = {{{d.idx},{false}}}
+                        remote:InvokeServer(unpack(args))
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end)
+end
+
+ShopTabButton.MouseButton1Click:Connect(function()
+    showTab("Shop") 
+end)
