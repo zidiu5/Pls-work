@@ -1098,7 +1098,7 @@ for _, category in pairs(EggsFolder:GetChildren()) do
                         if selectedEgg ~= "None" then
                             local args = {
                                 {
-                                    {selectedEgg,true,false},
+                                    {selectedEgg,false,true},
                                     {false,false,false}
                                 }
                             }
@@ -1605,7 +1605,7 @@ end
 local function AutoHatchLoop()
     while Running do
         local args = {
-            { { selectedOption.egg, true, false }, { false, false, false } }
+            { { selectedOption.egg, false, true }, { false, false, false } }
         }
         BuyEggRemote:InvokeServer(unpack(args))
         task.wait(0.5)
@@ -2234,12 +2234,3 @@ end
 ShopTabButton.MouseButton1Click:Connect(function()
     showTab("Shop") 
 end)
-
-
-
-
-
-
-
-
-
