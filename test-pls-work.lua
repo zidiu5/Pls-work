@@ -2235,3 +2235,311 @@ ShopTabButton.MouseButton1Click:Connect(function()
     showTab("Shop") 
 end)
 
+
+
+
+
+
+
+
+
+
+-- AUTO INDEX FARM TAB (Normal + Gold) mit Auto-Skip für nicht-hatchable Eggs
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Remotes = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
+
+local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+local SaveData = SaveModule.Get(LocalPlayer)
+
+-- == Tab Setup ==
+local AutoIndexTabButton = createTabButton("Auto Index Farm")
+local AutoIndexTabContent = createTabContent("Auto Index Farm")
+
+local innerTabs = {"Normal","Gold"}
+local innerTabFrames = {}
+local innerSelected = "Normal"
+
+local innerButtonHolder = Instance.new("Frame", AutoIndexTabContent)
+innerButtonHolder.Size = UDim2.new(1,0,0,40)
+innerButtonHolder.Position = UDim2.new(0,0,0,10)
+innerButtonHolder.BackgroundTransparency = 1
+
+local innerLayout = Instance.new("UIListLayout", innerButtonHolder)
+innerLayout.FillDirection = Enum.FillDirection.Horizontal
+innerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+innerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+innerLayout.Padding = UDim.new(0,8)
+
+for _, tabName in ipairs(innerTabs) do
+	local btn = Instance.new("TextButton", innerButtonHolder)
+	btn.Text = tabName
+	btn.Size = UDim2.new(0,120,1,0)
+	btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+	btn.TextColor3 = Color3.fromRGB(255,255,255)
+	btn.Font = Enum.Font.SourceSans
+	btn.TextSize = 15
+	btn.AutoButtonColor = false
+
+	local frame = Instance.new("Frame", AutoIndexTabContent)
+	frame.Size = UDim2.new(1,0,1,-60)
+	frame.Position = UDim2.new(0,0,0,55)
+	frame.BackgroundTransparency = 1
+	frame.Visible = (tabName == innerSelected)
+	innerTabFrames[tabName] = frame
+
+	btn.MouseButton1Click:Connect(function()
+		for n,f in pairs(innerTabFrames) do f.Visible = (n == tabName) end
+		innerSelected = tabName
+	end)
+end
+
+-- === Gemeinsame Funktionen ===
+local rarityMap = { ["1"]="Normal", ["2"]="Gold", ["3"]="Rainbow", ["4"]="DarkMatter", ["5"]="Exclusive" }
+
+local function loadFoundPets()
+	local foundPets = {}
+	local PetIndex = SaveData.Collection or {}
+	for petID, val in pairs(PetIndex) do
+		local artID, rarityNum = tostring(val):match("^(%d+)%-(%d+)$")
+		if artID and rarityNum then
+			foundPets[tonumber(artID)] = foundPets[tonumber(artID)] or {Normal=false, Gold=false, Rainbow=false, DarkMatter=false}
+			local rarityName = rarityMap[rarityNum]
+			if rarityName and foundPets[tonumber(artID)][rarityName] ~= nil then
+				foundPets[tonumber(artID)][rarityName] = true
+			end
+		end
+	end
+	return foundPets
+end
+
+local allPets, petRarity = {}, {}
+local allPetsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Pets")
+for _, petFolder in ipairs(allPetsFolder:GetChildren()) do
+	local petModule = petFolder:FindFirstChildOfClass("ModuleScript")
+	if petModule then
+		local success, petData = pcall(require, petModule)
+		if success and petData then
+			local petID = tonumber(petFolder.Name:match("^(%d+)")) or 0
+			allPets[petID] = petData.name or "?"
+			petRarity[petID] = petData.rarity or "Normal"
+		end
+	end
+end
+
+-- Egg suchen + prüfen ob hatchable
+local function findEggForPet(petID, isGold)
+	local EggsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Eggs")
+	for _, category in ipairs(EggsFolder:GetChildren()) do
+		for _, eggFolder in ipairs(category:GetChildren()) do
+			local eggModule = eggFolder:FindFirstChildOfClass("ModuleScript")
+			if eggModule then
+				local success, eggData = pcall(require, eggModule)
+				if success and eggData and type(eggData.drops) == "table" then
+					for _, drop in ipairs(eggData.drops) do
+						if tonumber(drop[1]) == petID then
+							local name = eggData.displayName or eggFolder.Name
+							if isGold then
+								name = name:find("Golden") and name or "Golden " .. name
+							end
+							-- Prüfen ob das Egg überhaupt kaufbar/hatchable ist
+							if eggData.hatchable == false or eggData.canOpen == false or eggData.locked == true then
+								return name, tonumber(drop[2]) or 0, false -- false = nicht hatchable
+							end
+							return name, tonumber(drop[2]) or 0, true
+						end
+					end
+				end
+			end
+		end
+	end
+	return nil, nil, false
+end
+
+local function hatchEgg(eggName)
+	local args = {{
+		{
+			eggName,
+			false,
+			true
+		},
+		{false,false,false}
+	}}
+	Remotes["buy egg"]:InvokeServer(unpack(args))
+end
+
+-- === UI Erstellen ===
+local function createFarmUI(parent, isGold)
+	local Frame = Instance.new("Frame", parent)
+	Frame.Size = UDim2.new(0, 350, 0, 220)
+	Frame.Position = UDim2.new(0.5, -175, 0.1, 0)
+	Frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	Frame.BorderSizePixel = 0
+	Frame.Active = true
+	Frame.Draggable = true
+
+	local Title = Instance.new("TextLabel", Frame)
+	Title.Size = UDim2.new(1, 0, 0, 30)
+	Title.BackgroundColor3 = Color3.fromRGB(50,50,50)
+	Title.Text = isGold and "🐾 Auto Index Farm (Gold)" or "🐾 Auto Index Farm (Normal)"
+	Title.TextColor3 = Color3.fromRGB(255,255,255)
+	Title.Font = Enum.Font.SourceSansBold
+	Title.TextSize = 20
+
+	local StartBtn = Instance.new("TextButton", Frame)
+	StartBtn.Size = UDim2.new(0.3, 0, 0, 35)
+	StartBtn.Position = UDim2.new(0.05, 0, 0.2, 0)
+	StartBtn.BackgroundColor3 = Color3.fromRGB(60,180,75)
+	StartBtn.Text = "▶ Start"
+	StartBtn.TextColor3 = Color3.new(1,1,1)
+	StartBtn.Font = Enum.Font.SourceSansBold
+	StartBtn.TextSize = 18
+
+	local StopBtn = Instance.new("TextButton", Frame)
+	StopBtn.Size = UDim2.new(0.3, 0, 0, 35)
+	StopBtn.Position = UDim2.new(0.35, 0, 0.2, 0)
+	StopBtn.BackgroundColor3 = Color3.fromRGB(220,60,60)
+	StopBtn.Text = "⏹ Stop"
+	StopBtn.TextColor3 = Color3.new(1,1,1)
+	StopBtn.Font = Enum.Font.SourceSansBold
+	StopBtn.TextSize = 18
+
+	local SkipBtn = Instance.new("TextButton", Frame)
+	SkipBtn.Size = UDim2.new(0.3, 0, 0, 35)
+	SkipBtn.Position = UDim2.new(0.65, 0, 0.2, 0)
+	SkipBtn.BackgroundColor3 = Color3.fromRGB(255,180,0)
+	SkipBtn.Text = "⏭ Skip Pet"
+	SkipBtn.TextColor3 = Color3.new(1,1,1)
+	SkipBtn.Font = Enum.Font.SourceSansBold
+	SkipBtn.TextSize = 18
+
+	local StatusLabel = Instance.new("TextLabel", Frame)
+	StatusLabel.Size = UDim2.new(1, -10, 0, 25)
+	StatusLabel.Position = UDim2.new(0, 5, 0.45, 0)
+	StatusLabel.BackgroundTransparency = 1
+	StatusLabel.Text = "Status: ⏸ Idle"
+	StatusLabel.TextColor3 = Color3.fromRGB(255,255,255)
+	StatusLabel.Font = Enum.Font.SourceSans
+	StatusLabel.TextSize = 16
+	StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local CurrentPetLabel = Instance.new("TextLabel", Frame)
+	CurrentPetLabel.Size = UDim2.new(1, -10, 0, 25)
+	CurrentPetLabel.Position = UDim2.new(0, 5, 0.55, 0)
+	CurrentPetLabel.BackgroundTransparency = 1
+	CurrentPetLabel.Text = "Aktuelles Pet: -"
+	CurrentPetLabel.TextColor3 = Color3.fromRGB(255,255,255)
+	CurrentPetLabel.Font = Enum.Font.SourceSans
+	CurrentPetLabel.TextSize = 16
+	CurrentPetLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local ChanceLabel = Instance.new("TextLabel", Frame)
+	ChanceLabel.Size = UDim2.new(1, -10, 0, 25)
+	ChanceLabel.Position = UDim2.new(0, 5, 0.65, 0)
+	ChanceLabel.BackgroundTransparency = 1
+	ChanceLabel.Text = "Chance: 0%"
+	ChanceLabel.TextColor3 = Color3.fromRGB(180,255,180)
+	ChanceLabel.Font = Enum.Font.SourceSans
+	ChanceLabel.TextSize = 16
+	ChanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local ProgressLabel = Instance.new("TextLabel", Frame)
+	ProgressLabel.Size = UDim2.new(1, -10, 0, 25)
+	ProgressLabel.Position = UDim2.new(0, 5, 0.75, 0)
+	ProgressLabel.BackgroundTransparency = 1
+	ProgressLabel.Text = "Fortschritt: 0/0"
+	ProgressLabel.TextColor3 = Color3.fromRGB(180,180,255)
+	ProgressLabel.Font = Enum.Font.SourceSans
+	ProgressLabel.TextSize = 16
+	ProgressLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local running = false
+	local skipCurrent = false
+
+	local function getMissingPets()
+		local foundPets = loadFoundPets()
+		local missingList = {}
+		for id,_ in pairs(allPets) do
+			local owned = foundPets[id]
+			local rarity = petRarity[id] or "Normal"
+			if rarity ~= "Exclusive" then
+				if not owned or not owned[isGold and "Gold" or "Normal"] then
+					table.insert(missingList, id)
+				end
+			end
+		end
+		return missingList
+	end
+
+	local function autoFarm()
+		running = true
+		local foundPets = loadFoundPets()
+		local missing = getMissingPets()
+		local total = #missing
+		local currentIndex = 1
+
+		while running and currentIndex <= total do
+			local petID = missing[currentIndex]
+			local petName = allPets[petID] or tostring(petID)
+			local rarity = petRarity[petID] or "Normal"
+			local eggName, chance, hatchable = findEggForPet(petID, isGold)
+
+			if not eggName then
+				print("⚠️ Kein Egg gefunden für", petName)
+				currentIndex += 1
+				continue
+			end
+
+			if not hatchable then
+				print("⛔ Egg nicht hatchable, skippe:", eggName)
+				currentIndex += 1
+				continue
+			end
+
+			CurrentPetLabel.Text = "Aktuelles Pet: "..petName.." | Rarity: "..rarity
+			ChanceLabel.Text = "Chance: "..chance.."%"
+			ProgressLabel.Text = "Fortschritt: "..currentIndex.."/"..total
+			StatusLabel.Text = "Status: 🥚 Hatching "..eggName
+
+			skipCurrent = false
+			while running and not skipCurrent do
+				foundPets = loadFoundPets()
+				if foundPets[petID] and foundPets[petID][isGold and "Gold" or "Normal"] then
+					break
+				end
+				hatchEgg(eggName)
+				task.wait(0.3)
+			end
+
+			currentIndex += 1
+		end
+
+		StatusLabel.Text = "Status: ✅ Fertig"
+		CurrentPetLabel.Text = "Aktuelles Pet: -"
+		ChanceLabel.Text = "Chance: 0%"
+		ProgressLabel.Text = "Fortschritt: 0/0"
+		running = false
+	end
+
+	StartBtn.MouseButton1Click:Connect(function()
+		if running then return end
+		task.spawn(autoFarm)
+	end)
+
+	StopBtn.MouseButton1Click:Connect(function()
+		running = false
+		StatusLabel.Text = "Status: ⏸ Gestoppt"
+	end)
+
+	SkipBtn.MouseButton1Click:Connect(function()
+		skipCurrent = true
+	end)
+end
+
+createFarmUI(innerTabFrames["Normal"], false)
+createFarmUI(innerTabFrames["Gold"], true)
+
+AutoIndexTabButton.MouseButton1Click:Connect(function()
+	showTab("Auto Index Farm")
+end)
