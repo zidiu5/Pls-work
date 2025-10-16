@@ -2014,6 +2014,8 @@ end)
 
 
 
+--[[
+
 -- ==== SHOP TAB (final mit Boosts & Diamonds) ====
 local ShopTabButton = createTabButton("Shop")
 local ShopContent = createTabContent("Shop")
@@ -2562,3 +2564,8 @@ AutoIndexTabButton.MouseButton1Click:Connect(function()
 	showTab("Auto Index Farm")
 end)
 
+
+
+
+
+]]
