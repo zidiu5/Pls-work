@@ -1,8 +1,39 @@
+-- Services
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Ensure we are executing on the client. If LocalPlayer is nil, try waiting briefly.
+if not LocalPlayer then
+    for i = 1, 50 do -- wait up to ~5 seconds
+        task.wait(0.1)
+        LocalPlayer = Players.LocalPlayer
+        if LocalPlayer then break end
+    end
+end
+
+if not LocalPlayer then
+    warn("small-fast-farm.lua: LocalPlayer is nil. This script must run on the client (LocalScript). Aborting.")
+    return
+end
+
+local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui", 5)
+if not PlayerGui then
+    warn("small-fast-farm.lua: PlayerGui not found. Aborting.")
+    return
+end
+
+local player = LocalPlayer
+local Remotes = Workspace:FindFirstChild("__THINGS") and Workspace.__THINGS:FindFirstChild("__REMOTES")
+if not Remotes then
+    warn("small-fast-farm.lua: workspace.__THINGS.__REMOTES not found. Some features may fail.")
+end
+
+-- Debug helper: set to true to force-show GUI for testing (remove/disable in production)
+local SHOW_DEBUG_GUI = false
 
 --// ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
@@ -80,10 +111,6 @@ local function createTabContent(name)
     return tab
 end
 
-local spacer = Instance.new("Frame", TabFrame)
-spacer.Size = UDim2.new(1,0,0,0)
-spacer.BackgroundTransparency = 1
-
 local MainTabButton = createTabButton("Main")
 local FarmTabButton = createTabButton("Farm")
 local MainContent = createTabContent("Main")
@@ -137,8 +164,6 @@ local function createToggle(parent, text, initial)
     label.TextColor3 = Color3.fromRGB(240,240,240)
     label.TextSize = 16
     label.Font = Enum.Font.SourceSans
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Center
 
     local toggleBtn = Instance.new("TextButton", frame)
     toggleBtn.Size = UDim2.new(0.18, -6, 1, 0)
@@ -153,98 +178,25 @@ local function createToggle(parent, text, initial)
     local state = initial
     local onToggle = function(newState) end
 
-    -- Exposed object and flags
-    local obj = {}
-    obj._state = state           -- aktueller Zustand (wird von außen geprüft)
-    obj._running = false        -- Laufende Hintergrund-Task (verhindert Duplikate)
-
     toggleBtn.MouseButton1Click:Connect(function()
         state = not state
-        obj._state = state
         toggleBtn.Text = state and "ON" or "OFF"
         toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
         onToggle(state)
     end)
 
+    local obj = {}
     function obj:SetCallback(fn) onToggle = fn end
     function obj:SetState(s)
         state = s
-        obj._state = s
         toggleBtn.Text = state and "ON" or "OFF"
         toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
     end
-
     return obj
 end
 
 local rankToggle = createToggle(TogglesList, "Auto Collect Rank Rewards", false)
 local orbsToggle = createToggle(TogglesList, "Auto Collect Orbs", false)
-
-orbsToggle:SetCallback(function(enabled)
-    local Workspace = game:GetService("Workspace")
-    local Things = Workspace:WaitForChild("__THINGS")
-    local LootbagsFolder = Things:WaitForChild("Lootbags")
-    local OrbsFolder = Things:WaitForChild("Orbs")
-    local Remotes = Things:WaitForChild("__REMOTES")
-
-    -- Wenn ausgeschaltet: das ermöglicht laufenden Loop natürlich zu stoppen (er prüft orbsToggle._state)
-    if not enabled then
-        return
-    end
-
-    -- Verhindere, dass bei mehreren schnellen Klicks mehrere Loops gestartet werden
-    if orbsToggle._running then return end
-    orbsToggle._running = true
-
-    task.spawn(function()
-        while orbsToggle._state do
-            -- Lootbags sammeln
-            for _, lootbag in pairs(LootbagsFolder:GetChildren()) do
-                if lootbag and lootbag:IsA("MeshPart") then
-                    local args = {
-                        {
-                            {
-                                lootbag.Name,
-                                lootbag.Position
-                            },
-                            {
-                                false,
-                                false
-                            }
-                        }
-                    }
-                    Remotes:WaitForChild("collect lootbag"):FireServer(unpack(args))
-                    -- optional: pcall beim Destroy, falls außerhalb erreichbar
-                    pcall(function() lootbag:Destroy() end)
-                end
-            end
-
-            -- Orbs sammeln
-            for _, orb in pairs(OrbsFolder:GetChildren()) do
-                if orb and orb:IsA("Part") then
-                    local args = {
-                        {
-                            {
-                                {orb.Name}
-                            },
-                            {
-                                false
-                            }
-                        }
-                    }
-                    Remotes:WaitForChild("claim orbs"):FireServer(unpack(args))
-                    pcall(function() orb:Destroy() end)
-                end
-            end
-
-            task.wait(0.1)
-        end
-
-        -- Loop beendet -> running zurücksetzen
-        orbsToggle._running = false
-    end)
-end)
-
 
 --// Open/Close Button with Animation
 local OpenCloseBtn = Instance.new("TextButton", ScreenGui)
@@ -279,7 +231,7 @@ end)
 
 
 
---// Funktion zum Draggen (Maus + Touch)
+-- Draggable helper (mouse & touch)
 local function makeDraggable(frame)
     local dragging, dragInput, startPos, startInputPos
 
@@ -317,11 +269,11 @@ local function makeDraggable(frame)
     end)
 end
 
---// MainFrame und Open/Close Button draggable machen
+-- Make MainFrame and Open/Close Button draggable
 makeDraggable(MainFrame)
 makeDraggable(OpenCloseBtn)
 
---// Open/Close Button mit Animation
+-- Open/Close button animation
 local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local isOpen = false
 
@@ -353,10 +305,10 @@ FarmScroll.BackgroundTransparency = 1
 FarmScroll.ScrollBarThickness = 6
 FarmScroll.CanvasSize = UDim2.new(0,0,0,0)
 
-local Layout = Instance.new("UIListLayout", FarmScroll)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Padding = UDim.new(0,10)
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local FarmLayout = Instance.new("UIListLayout", FarmScroll)
+FarmLayout.SortOrder = Enum.SortOrder.LayoutOrder
+FarmLayout.Padding = UDim.new(0,10)
+FarmLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local FarmTitle = Instance.new("TextLabel", FarmScroll)
 FarmTitle.Size = UDim2.new(1,0,0,30)
@@ -416,7 +368,6 @@ local areaFarmEnabled = false
 local autoCollectEnabled = false
 local farmRadius = 50
 local selectedArea = nil
-local player = game.Players.LocalPlayer
 
 local radiusToggle = createFarmToggle(FarmScroll, "Radius Farm", false)
 radiusToggle:SetCallback(function(state)
@@ -595,8 +546,8 @@ task.spawn(function()
     end
 end)
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    FarmScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+FarmLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    FarmScroll.CanvasSize = UDim2.new(0,0,0,FarmLayout.AbsoluteContentSize.Y + 20)
 end)
 
 
@@ -625,10 +576,10 @@ SlowScroll.BackgroundTransparency = 1
 SlowScroll.ScrollBarThickness = 6
 SlowScroll.CanvasSize = UDim2.new(0,0,0,0)
 
-local Layout = Instance.new("UIListLayout", SlowScroll)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Padding = UDim.new(0,10)
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local SlowLayout = Instance.new("UIListLayout", SlowScroll)
+SlowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SlowLayout.Padding = UDim.new(0,10)
+SlowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local function createSlowToggle(parent, text, initial)
     local frame = Instance.new("Frame", parent)
@@ -682,7 +633,6 @@ local slowAutoCollectEnabled = false
 local slowFarmRadius = 50
 local selectedSlowArea = nil
 local selectedSlowChest = nil
-local player = game.Players.LocalPlayer
 
 local radiusToggle = createSlowToggle(SlowScroll, "Radius Farm", false)
 radiusToggle:SetCallback(function(state) slowRadiusEnabled = state end)
@@ -920,29 +870,27 @@ task.spawn(function()
     end
 end)
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    SlowScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+SlowLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    SlowScroll.CanvasSize = UDim2.new(0,0,0,SlowLayout.AbsoluteContentSize.Y + 20)
 end)
 
 
 
 -- ==== Eggs Tab ====
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EggsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Eggs")
-local Remotes = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
 
 local EggsTabButton = createTabButton("Eggs")
 local EggsContent = createTabContent("Eggs")
 
-local header = Instance.new("TextLabel", EggsContent)
-header.Size = UDim2.new(1,0,0,30)
-header.Position = UDim2.new(0,10,0,10)
-header.BackgroundTransparency = 1
-header.Text = "Egg Controls"
-header.TextColor3 = Color3.fromRGB(255,255,255)
-header.TextSize = 18
-header.Font = Enum.Font.SourceSansBold
-header.ZIndex = 1
+local EggsHeader = Instance.new("TextLabel", EggsContent)
+EggsHeader.Size = UDim2.new(1,0,0,30)
+EggsHeader.Position = UDim2.new(0,10,0,10)
+EggsHeader.BackgroundTransparency = 1
+EggsHeader.Text = "Egg Controls"
+EggsHeader.TextColor3 = Color3.fromRGB(255,255,255)
+EggsHeader.TextSize = 18
+EggsHeader.Font = Enum.Font.SourceSansBold
+EggsHeader.ZIndex = 1
 
 local EggsScroll = Instance.new("ScrollingFrame", EggsContent)
 EggsScroll.Size = UDim2.new(1,0,1,-40)
@@ -951,10 +899,10 @@ EggsScroll.BackgroundTransparency = 1
 EggsScroll.ScrollBarThickness = 6
 EggsScroll.CanvasSize = UDim2.new(0,0,0,0)
 
-local Layout = Instance.new("UIListLayout", EggsScroll)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Padding = UDim.new(0,10)
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local EggsLayout = Instance.new("UIListLayout", EggsScroll)
+EggsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+EggsLayout.Padding = UDim.new(0,10)
+EggsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local function createEggToggle(parent, text, initial)
     local frame = Instance.new("Frame", parent)
@@ -1098,7 +1046,7 @@ for _, category in pairs(EggsFolder:GetChildren()) do
                         if selectedEgg ~= "None" then
                             local args = {
                                 {
-                                    {selectedEgg,false,true},
+                                    {selectedEgg,true,false},
                                     {false,false,false}
                                 }
                             }
@@ -1116,8 +1064,8 @@ for _, category in pairs(EggsFolder:GetChildren()) do
     end
 end
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    EggsScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+EggsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    EggsScroll.CanvasSize = UDim2.new(0,0,0,EggsLayout.AbsoluteContentSize.Y + 20)
 end)
 
 EggsTabButton.MouseButton1Click:Connect(function()
@@ -1136,12 +1084,8 @@ end)
 
 
 -- MACHINES TAB
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PetsFolder = workspace:WaitForChild("__THINGS"):WaitForChild("Pets")
 local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
-local Remotes = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
 
 -- CONFIG
 local EnchantsList = {"Coins", "Fantasy Coins", "Tech Coins", "Royalty", "Diamonds", "Rng Coins", "Agility", "Charm", "Chests", "Glittering", "Magnet", "Present", "Strength", "Teamwork"}
@@ -1152,14 +1096,14 @@ local MachinesTabButton = createTabButton("Machines")
 local MachinesContent = createTabContent("Machines")
 
 -- Header
-local header = Instance.new("TextLabel", MachinesContent)
-header.Size = UDim2.new(1,0,0,30)
-header.Position = UDim2.new(0,10,0,10)
-header.BackgroundTransparency = 1
-header.Text = "Machine Controls"
-header.TextColor3 = Color3.fromRGB(255,255,255)
-header.TextSize = 18
-header.Font = Enum.Font.SourceSansBold
+local MachinesHeader = Instance.new("TextLabel", MachinesContent)
+MachinesHeader.Size = UDim2.new(1,0,0,30)
+MachinesHeader.Position = UDim2.new(0,10,0,10)
+MachinesHeader.BackgroundTransparency = 1
+MachinesHeader.Text = "Machine Controls"
+MachinesHeader.TextColor3 = Color3.fromRGB(255,255,255)
+MachinesHeader.TextSize = 18
+MachinesHeader.Font = Enum.Font.SourceSansBold
 
 -- ScrollFrame
 local MachinesScroll = Instance.new("ScrollingFrame", MachinesContent)
@@ -1169,10 +1113,10 @@ MachinesScroll.BackgroundTransparency = 1
 MachinesScroll.ScrollBarThickness = 6
 MachinesScroll.CanvasSize = UDim2.new(0,0,0,0)
 
-local Layout = Instance.new("UIListLayout", MachinesScroll)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Padding = UDim.new(0,10)
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local MachinesLayout = Instance.new("UIListLayout", MachinesScroll)
+MachinesLayout.SortOrder = Enum.SortOrder.LayoutOrder
+MachinesLayout.Padding = UDim.new(0,10)
+MachinesLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 -- AUTO ENCHANT SECTION 
 local EnchantToggles = {}
@@ -1444,8 +1388,8 @@ task.spawn(function()
     end
 end)
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    MachinesScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+MachinesLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    MachinesScroll.CanvasSize = UDim2.new(0,0,0,MachinesLayout.AbsoluteContentSize.Y + 20)
 end)
 
 MachinesTabButton.MouseButton1Click:Connect(function()
@@ -1460,27 +1404,21 @@ end)
 
 
 -- ==== Misc Tab ====
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
-local Remotes = Workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES")
 local BuyEggRemote = Remotes:WaitForChild("buy egg")
 local DeletePetsRemote = Remotes:WaitForChild("delete several pets")
 
 local MiscTabButton = createTabButton("Misc")
 local MiscContent = createTabContent("Misc")
 
-local header = Instance.new("TextLabel", MiscContent)
-header.Size = UDim2.new(1,0,0,30)
-header.Position = UDim2.new(0,10,0,10)
-header.BackgroundTransparency = 1
-header.Text = "Misc Features"
-header.TextColor3 = Color3.fromRGB(255,255,255)
-header.TextSize = 18
-header.Font = Enum.Font.SourceSansBold
+local MiscHeader = Instance.new("TextLabel", MiscContent)
+MiscHeader.Size = UDim2.new(1,0,0,30)
+MiscHeader.Position = UDim2.new(0,10,0,10)
+MiscHeader.BackgroundTransparency = 1
+MiscHeader.Text = "Misc Features"
+MiscHeader.TextColor3 = Color3.fromRGB(255,255,255)
+MiscHeader.TextSize = 18
+MiscHeader.Font = Enum.Font.SourceSansBold
 
 local MiscScroll = Instance.new("ScrollingFrame", MiscContent)
 MiscScroll.Size = UDim2.new(1,0,1,-40)
@@ -1489,10 +1427,10 @@ MiscScroll.BackgroundTransparency = 1
 MiscScroll.ScrollBarThickness = 6
 MiscScroll.CanvasSize = UDim2.new(0,0,0,0)
 
-local Layout = Instance.new("UIListLayout", MiscScroll)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Padding = UDim.new(0,10)
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local MiscLayout = Instance.new("UIListLayout", MiscScroll)
+MiscLayout.SortOrder = Enum.SortOrder.LayoutOrder
+MiscLayout.Padding = UDim.new(0,10)
+MiscLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local Options = {
     { name = "Huge Vampire Bat", egg = "Grim Eggz", id = "1215" },
@@ -1605,7 +1543,7 @@ end
 local function AutoHatchLoop()
     while Running do
         local args = {
-            { { selectedOption.egg, false, true }, { false, false, false } }
+            { { selectedOption.egg, true, false }, { false, false, false } }
         }
         BuyEggRemote:InvokeServer(unpack(args))
         task.wait(0.5)
@@ -1656,8 +1594,8 @@ animToggle.MouseButton1Click:Connect(function()
     end
 end)
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    MiscScroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+MiscLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    MiscScroll.CanvasSize = UDim2.new(0,0,0,MiscLayout.AbsoluteContentSize.Y + 20)
 end)
 
 MiscTabButton.MouseButton1Click:Connect(function()
@@ -1670,15 +1608,15 @@ end)
 -- INDEX TAB: Missing Pets
 local IndexTab = createTabContent("Index")
 
-local Title = Instance.new("TextLabel", IndexTab)
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundTransparency = 1
-Title.Text = "🐾 Missing Pets"
-Title.TextColor3 = Color3.fromRGB(255,255,255)
-Title.TextSize = 20
-Title.Font = Enum.Font.SourceSansBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Position = UDim2.new(0, 10, 0, 5)
+local IndexTitle = Instance.new("TextLabel", IndexTab)
+IndexTitle.Size = UDim2.new(1, 0, 0, 30)
+IndexTitle.BackgroundTransparency = 1
+IndexTitle.Text = "🐾 Missing Pets"
+IndexTitle.TextColor3 = Color3.fromRGB(255,255,255)
+IndexTitle.TextSize = 20
+IndexTitle.Font = Enum.Font.SourceSansBold
+IndexTitle.TextXAlignment = Enum.TextXAlignment.Left
+IndexTitle.Position = UDim2.new(0, 10, 0, 5)
 
 local RarityFilter = Instance.new("TextButton", IndexTab)
 RarityFilter.Size = UDim2.new(0.48, -5, 0, 28)
@@ -1705,13 +1643,9 @@ ScrollFrame.CanvasSize = UDim2.new(0,0,0,0)
 ScrollFrame.ScrollBarThickness = 6
 ScrollFrame.BackgroundTransparency = 1
 
-local UIList = Instance.new("UIListLayout", ScrollFrame)
-UIList.SortOrder = Enum.SortOrder.LayoutOrder
-UIList.Padding = UDim.new(0, 6)
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local IndexUIList = Instance.new("UIListLayout", ScrollFrame)
+IndexUIList.SortOrder = Enum.SortOrder.LayoutOrder
+IndexUIList.Padding = UDim.new(0, 6)
 
 local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
 local SaveData = SaveModule.Get(LocalPlayer)
@@ -1809,7 +1743,7 @@ local function refreshList()
         end
     end
 
-    ScrollFrame.CanvasSize = UDim2.new(0,0,0,UIList.AbsoluteContentSize.Y + 10)
+    ScrollFrame.CanvasSize = UDim2.new(0,0,0,IndexUIList.AbsoluteContentSize.Y + 10)
 end
 
 local function setupCycleButton(button, options, setFunc)
@@ -1845,10 +1779,6 @@ IndexTabButton.MouseButton1Click:Connect(function() showTab("Index") end)
 
 
 -- Pet Finder Tab 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local allPetsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Pets")
 local PetNames = {}
 local PetIDs = {}
@@ -1868,17 +1798,16 @@ end
 local PetFinderTabButton = createTabButton("Pet Finder")
 local PetFinderContent = createTabContent("Pet Finder")
 
-local header = Instance.new("TextLabel", PetFinderContent)
-header.Size = UDim2.new(1,0,0,30)
-header.Position = UDim2.new(0,10,0,10)
-header.BackgroundTransparency = 1
-header.Text = "Pet Finder 🔍"
-header.TextColor3 = Color3.fromRGB(255,255,255)
-header.TextSize = 18
-header.Font = Enum.Font.SourceSansBold
+local PetFinderHeader = Instance.new("TextLabel", PetFinderContent)
+PetFinderHeader.Size = UDim2.new(1,0,0,30)
+PetFinderHeader.Position = UDim2.new(0,10,0,10)
+PetFinderHeader.BackgroundTransparency = 1
+PetFinderHeader.Text = "Pet Finder 🔍"
+PetFinderHeader.TextColor3 = Color3.fromRGB(255,255,255)
+PetFinderHeader.TextSize = 18
+PetFinderHeader.Font = Enum.Font.SourceSansBold
 
 local PetBox = Instance.new("TextBox", PetFinderContent)
-PetBox.Text = ""
 PetBox.Size = UDim2.new(0.7, -10, 0, 30)
 PetBox.Position = UDim2.new(0,10,0,50)
 PetBox.PlaceholderText = "Pet Name..."
@@ -1903,9 +1832,9 @@ ScrollFrame.Position = UDim2.new(0,10,0,90)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.ScrollBarThickness = 6
 
-local UIList = Instance.new("UIListLayout", ScrollFrame)
-UIList.SortOrder = Enum.SortOrder.LayoutOrder
-UIList.Padding = UDim.new(0,5)
+local PetFinderUIList = Instance.new("UIListLayout", ScrollFrame)
+PetFinderUIList.SortOrder = Enum.SortOrder.LayoutOrder
+PetFinderUIList.Padding = UDim.new(0,5)
 
 local function findEggsForPet(petName)
     local results = {}
@@ -2000,7 +1929,7 @@ local function refreshResults()
         end
     end
 
-    ScrollFrame.CanvasSize = UDim2.new(0,0,0,UIList.AbsoluteContentSize.Y+10)
+    ScrollFrame.CanvasSize = UDim2.new(0,0,0,PetFinderUIList.AbsoluteContentSize.Y+10)
 end
 
 FindButton.MouseButton1Click:Connect(refreshResults)
@@ -2010,227 +1939,16 @@ PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
 end)
 
-
-
-
-
--- ==== SHOP TAB (final mit Boosts & Diamonds) ====
-local ShopTabButton = createTabButton("Shop")
-local ShopContent = createTabContent("Shop")
-
--- Inner Tabs
-local innerTabs = {"Egg/Hatch","Boosts","Diamonds"}
-local innerTabFrames = {}
-local innerSelected = "Egg/Hatch"
-
--- Container für inneren Button-Bereich
-local innerButtonHolder = Instance.new("Frame", ShopContent)
-innerButtonHolder.Size = UDim2.new(1,0,0,40)
-innerButtonHolder.Position = UDim2.new(0,0,0,10)
-innerButtonHolder.BackgroundTransparency = 1
-
--- Layout für die Buttons (zentriert)
-local innerLayout = Instance.new("UIListLayout", innerButtonHolder)
-innerLayout.FillDirection = Enum.FillDirection.Horizontal
-innerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-innerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-innerLayout.Padding = UDim.new(0,8)
-
--- Erzeuge die Inner Tabs + Buttons
-for _, tabName in ipairs(innerTabs) do
-    local btn = Instance.new("TextButton", innerButtonHolder)
-    btn.Text = tabName
-    btn.Size = UDim2.new(0,120,1,0)
-    btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
-    btn.TextColor3 = Color3.fromRGB(255,255,255)
-    btn.Font = Enum.Font.SourceSans
-    btn.TextSize = 15
-    btn.AutoButtonColor = false
-
-    local frame = Instance.new("Frame", ShopContent)
-    frame.Size = UDim2.new(1,0,1,-60)
-    frame.Position = UDim2.new(0,0,0,55)
-    frame.BackgroundTransparency = 1
-    frame.Visible = (tabName==innerSelected)
-    innerTabFrames[tabName] = frame
-
-    btn.MouseButton1Click:Connect(function()
-        for n,f in pairs(innerTabFrames) do f.Visible = (n==tabName) end
-        innerSelected = tabName
-    end)
+-- Debug: force-show GUI for testing if enabled
+if SHOW_DEBUG_GUI then
+    -- Make sure ScreenGui is parented
+    if ScreenGui and not ScreenGui.Parent then
+        ScreenGui.Parent = PlayerGui
+    end
+    -- Make visible and center the controls for easy observation
+    MainFrame.Visible = true
+    MainFrame.Size = UDim2.new(0, 600, 0, 360)
+    OpenCloseBtn.Position = UDim2.new(0.5, -70, 0.5, -24)
+    OpenCloseBtn.Text = "Debug: GUI Visible"
+    print("small-fast-farm.lua: DEBUG GUI forced visible")
 end
-
--- Helper: ScrollFrame + Layout
-local function createScroll(parent)
-    local scroll = Instance.new("ScrollingFrame", parent)
-    scroll.Size = UDim2.new(1,0,1,0)
-    scroll.BackgroundTransparency = 1
-    scroll.ScrollBarThickness = 6
-    scroll.CanvasSize = UDim2.new(0,0,0,0)
-    local layout = Instance.new("UIListLayout", scroll)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0,10)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.VerticalAlignment = Enum.VerticalAlignment.Top
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        scroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
-    end)
-    return scroll
-end
-
--- Gemeinsame Toggle-Tabelle für alle Tabs
-local toggleStates = {}
-
--- Toggle Factory
-local function createToggle(parent, key, text, price, callback)
-    local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1,-20,0,50)
-    frame.BackgroundTransparency = 1
-
-    local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1,0,0,20)
-    title.Position = UDim2.new(0,0,0,0)
-    title.BackgroundTransparency = 1
-    title.Text = text
-    title.TextColor3 = Color3.fromRGB(255,255,255)
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 16
-
-    local priceLabel = Instance.new("TextLabel", frame)
-    priceLabel.Size = UDim2.new(1,0,0,16)
-    priceLabel.Position = UDim2.new(0,0,0,22)
-    priceLabel.BackgroundTransparency = 1
-    priceLabel.Text = price
-    priceLabel.TextColor3 = Color3.fromRGB(200,200,200)
-    priceLabel.Font = Enum.Font.SourceSans
-    priceLabel.TextSize = 14
-
-    local toggleBtn = Instance.new("TextButton", frame)
-    toggleBtn.Size = UDim2.new(0.25,0,0,36)
-    toggleBtn.Position = UDim2.new(0.725,0,0,7)
-    toggleBtn.TextSize = 16
-    toggleBtn.Font = Enum.Font.SourceSansBold
-    toggleBtn.Text = "OFF"
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(120,120,120)
-    toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
-    toggleBtn.AutoButtonColor = false
-
-    toggleStates[key] = false
-    toggleBtn.MouseButton1Click:Connect(function()
-        toggleStates[key] = not toggleStates[key]
-        local state = toggleStates[key]
-        toggleBtn.Text = state and "ON" or "OFF"
-        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(60,140,60) or Color3.fromRGB(120,120,120)
-        if callback then
-            task.spawn(function() callback(state, key) end)
-        end
-    end)
-end
-
--- ==== EGG/HATCH TAB ====
-local eggScroll = createScroll(innerTabFrames["Egg/Hatch"])
-
-local function createEggToggle(name, price, remoteName)
-    createToggle(eggScroll, remoteName, name, price, function(state)
-        if state then
-            task.spawn(function()
-                while toggleStates[remoteName] do
-                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(remoteName)
-                    if remote then
-                        local args = { { { false }, { 2 } } }
-                        remote:InvokeServer(unpack(args))
-                    end
-                    task.wait(0.3)
-                end
-            end)
-        end
-    end)
-end
-
--- Eggs 1/3 Hatch
-createEggToggle("Exclusive RNG Egg (1 Hatch)", "2.5M RNG Coins", "exclusiverngeggz1")
-createEggToggle("Exclusive RNG Egg (3 Hatch)", "7M RNG Coins", "exclusiverngeggz3")
-createEggToggle("Exclusive Halloween Gifts (1 Hatch)", "20M Halloween Coins", "halloweengiftbox1")
-createEggToggle("Exclusive Halloween Gifts (3 Hatch)", "55M Halloween Coins", "halloweengiftbox3")
-createEggToggle("Exclusive Nightmare Egg (1 Hatch)", "95M Halloween Coins", "nightmareeggs3")
-createEggToggle("Exclusive Nightmare Egg (3 Hatch)", "265M Halloween Coins", "nightmareeggs3")
-createEggToggle("Exclusive Ghoul Egg (1 Hatch)", "40M Halloween Coins", "exclusiveghoulegg1")
-createEggToggle("Exclusive Ghoul Egg (3 Hatch)", "115M Halloween Coins", "exclusiveghoulegg3")
-createEggToggle("Exclusive Pumpkin Egg (1 Hatch)", "23.5M Halloween Coins", "exclusivepumpkinegg1")
-createEggToggle("Exclusive Pumpkin Egg (3 Hatch)", "75M Halloween Coins", "exclusivepumpkinegg3")
-createEggToggle("Exclusive Pixel Egg (1 Hatch)", "7M Diamonds", "exclusiveeggnormal")
-createEggToggle("Exclusive Pixel Egg (3 Hatch)", "18.5M Diamonds", "exclusiveeggnormal3")
-createEggToggle("Exclusive Party Egg (1 Hatch)", "5M Diamonds", "exclusiveeggparty")
-createEggToggle("Exclusive Party Egg (3 Hatch)", "15M Diamonds", "exclusiveeggparty3")
-
--- Bundles / Single Eggs
-createEggToggle("Vampire Bundle", "500M Diamonds", "halloweenbundlep2ww")
-createEggToggle("RNG Mechatronic Bundle", "300M Diamonds", "rngbundle69")
-createEggToggle("Exclusive Mystery Huge Egg", "365M Diamonds", "exclusivemysteryegg")
-createEggToggle("Pixel Dragon Bundle", "255M Diamonds", "bundlesf2ptech")
-createEggToggle("Party Bundle", "315M Diamonds", "bundlesf2p")
-
--- ==== BOOSTS TAB (fix) ====
-local boostScroll = createScroll(innerTabFrames["Boosts"])
-local boosts = {
-    {name="Triple Coins", price="10k Diamonds", remote="buy boost"},
-    {name="Triple Damage", price="15k Diamonds", remote="buy boost"},
-    {name="Super Lucky", price="20k Diamonds", remote="buy boost"},
-    {name="Ultra Lucky", price="25k Diamonds", remote="buy boost"},
-    {name="Boost Pack", price="1M Diamonds", remote="boostspackkzzzrileys"},
-}
-
-for _,b in ipairs(boosts) do
-    createToggle(boostScroll, b.remote..b.name, b.name, b.price, function(state)
-        if state then
-            task.spawn(function()
-                while toggleStates[b.remote..b.name] do
-                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(b.remote)
-                    if remote then
-                        local args
-                        if b.name == "Boost Pack" then
-                            args = { { {false}, {2} } }  -- Boost Pack
-                        else
-                            args = { { {b.name}, {false} } }  -- normal Boosts
-                        end
-                        remote:InvokeServer(unpack(args))
-                    end
-                    task.wait(0.3)
-                end
-            end)
-        end
-    end)
-end
-
-
--- ==== DIAMONDS TAB ====
-local diamondScroll = createScroll(innerTabFrames["Diamonds"])
-local diamonds = {
-    {name="Small", price="5B Coins", remote="buy diamondpack", idx=1},
-    {name="Medium", price="17.5B Coins", remote="buy diamondpack", idx=2},
-    {name="Large", price="40B Fantasy Coins", remote="buy diamondpack", idx=3},
-    {name="625k", price="85B Tech Coins", remote="buy diamondpack", idx=5},
-    {name="1.5M", price="295M Rainbow Coins", remote="buy diamondpack", idx=8},
-    {name="600k", price="92.5M RNG Coins", remote="buy diamondpack", idx=10},
-}
-
-for _,d in ipairs(diamonds) do
-    createToggle(diamondScroll, d.remote..d.idx, d.name.." Diamonds", d.price, function(state)
-        if state then
-            task.spawn(function()
-                while toggleStates[d.remote..d.idx] do
-                    local remote = workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):FindFirstChild(d.remote)
-                    if remote then
-                        local args = {{{d.idx},{false}}}
-                        remote:InvokeServer(unpack(args))
-                    end
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end)
-end
-
-ShopTabButton.MouseButton1Click:Connect(function()
-    showTab("Shop") 
-end)
