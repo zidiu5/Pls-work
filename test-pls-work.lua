@@ -2234,7 +2234,3 @@ end
 ShopTabButton.MouseButton1Click:Connect(function()
     showTab("Shop") 
 end)
-
-
-
-
