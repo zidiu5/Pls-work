@@ -172,7 +172,7 @@ end
 local autoRank = false
 local autoOrbs = false
 
--- Rank toggle
+--[[ Rank toggle
 local rankToggle = createToggle(TogglesList, "Auto Collect Rank Rewards", false)
 rankToggle:SetCallback(function(state)
     autoRank = state
@@ -204,7 +204,7 @@ rankToggle:SetCallback(function(state)
     end
 end)
 
--- Orbs toggle
+--Orbs toggle
 local orbsToggle = createToggle(TogglesList, "Auto Collect Orbs", false)
 orbsToggle:SetCallback(function(state)
     autoOrbs = state
@@ -238,10 +238,10 @@ orbsToggle:SetCallback(function(state)
         end)
     end
 end)
-
+]]
 -- Platzhalter Farm-Tab Inhalt
 local FarmLabel = Instance.new("TextLabel", FarmContent)
-FarmLabel.Text = "Farm tab content here..."
+FarmLabel.Text = "Absolutely nothing here..."
 FarmLabel.Size = UDim2.new(1, 0, 0, 30)
 FarmLabel.Position = UDim2.new(0, 10, 0, 10)
 FarmLabel.BackgroundTransparency = 1
@@ -963,4 +963,5 @@ AutoIndexTabButton.MouseButton1Click:Connect(function()
 showTab("Auto Index Farm")
 
 end)
+
 
