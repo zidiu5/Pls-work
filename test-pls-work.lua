@@ -2014,7 +2014,8 @@ end)
 
 
 
---[[
+
+
 
 -- ==== SHOP TAB (final mit Boosts & Diamonds) ====
 local ShopTabButton = createTabButton("Shop")
@@ -2264,7 +2265,7 @@ end)
 
 
 
--- AUTO INDEX FARM TAB (Normal + Gold) mit Auto-Skip für nicht-hatchable Eggs
+-- AUTO INDEX FARM TAB (Normal + Gold)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2277,6 +2278,7 @@ local SaveData = SaveModule.Get(LocalPlayer)
 local AutoIndexTabButton = createTabButton("Auto Index Farm")
 local AutoIndexTabContent = createTabContent("Auto Index Farm")
 
+-- Inner Tabs: Normal / Gold
 local innerTabs = {"Normal","Gold"}
 local innerTabFrames = {}
 local innerSelected = "Normal"
@@ -2348,7 +2350,6 @@ for _, petFolder in ipairs(allPetsFolder:GetChildren()) do
 	end
 end
 
--- Egg suchen + prüfen ob hatchable
 local function findEggForPet(petID, isGold)
 	local EggsFolder = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Eggs")
 	for _, category in ipairs(EggsFolder:GetChildren()) do
@@ -2363,18 +2364,14 @@ local function findEggForPet(petID, isGold)
 							if isGold then
 								name = name:find("Golden") and name or "Golden " .. name
 							end
-							-- Prüfen ob das Egg überhaupt kaufbar/hatchable ist
-							if eggData.hatchable == false or eggData.canOpen == false or eggData.locked == true then
-								return name, tonumber(drop[2]) or 0, false -- false = nicht hatchable
-							end
-							return name, tonumber(drop[2]) or 0, true
+							return name, tonumber(drop[2]) or 0
 						end
 					end
 				end
 			end
 		end
 	end
-	return nil, nil, false
+	return nil, nil
 end
 
 local function hatchEgg(eggName)
@@ -2389,7 +2386,7 @@ local function hatchEgg(eggName)
 	Remotes["buy egg"]:InvokeServer(unpack(args))
 end
 
--- === UI Erstellen ===
+-- === Funktion für UI pro Untertab ===
 local function createFarmUI(parent, isGold)
 	local Frame = Instance.new("Frame", parent)
 	Frame.Size = UDim2.new(0, 350, 0, 220)
@@ -2503,16 +2500,10 @@ local function createFarmUI(parent, isGold)
 			local petID = missing[currentIndex]
 			local petName = allPets[petID] or tostring(petID)
 			local rarity = petRarity[petID] or "Normal"
-			local eggName, chance, hatchable = findEggForPet(petID, isGold)
+			local eggName, chance = findEggForPet(petID, isGold)
 
 			if not eggName then
 				print("⚠️ Kein Egg gefunden für", petName)
-				currentIndex += 1
-				continue
-			end
-
-			if not hatchable then
-				print("⛔ Egg nicht hatchable, skippe:", eggName)
 				currentIndex += 1
 				continue
 			end
@@ -2563,9 +2554,3 @@ createFarmUI(innerTabFrames["Gold"], true)
 AutoIndexTabButton.MouseButton1Click:Connect(function()
 	showTab("Auto Index Farm")
 end)
-
-
-
-
-
-]]
