@@ -1,61 +1,3 @@
--- cleaned header; legacy commented block removed
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -1969,4 +1911,5 @@ FindButton.MouseButton1Click:Connect(refreshResults)
 -- Tab aktivieren beim Klick
 PetFinderTabButton.MouseButton1Click:Connect(function()
     showTab("Pet Finder")
+
 end)
