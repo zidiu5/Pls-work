@@ -182,6 +182,86 @@ end
 local rankToggle = createToggle(TogglesList, "Auto Collect Rank Rewards", false)
 local orbsToggle = createToggle(TogglesList, "Auto Collect Orbs", false)
 
+-- Currency Tracker Sektion 
+local CurrencySection = Instance.new("Frame", MainContent)
+CurrencySection.Name = "CurrencyTracker"
+CurrencySection.BackgroundTransparency = 1
+CurrencySection.Size = UDim2.new(1, -20, 0, 160)
+CurrencySection.Position = UDim2.new(0, 10, 0, 150)
+
+local CurrencyTitle = Instance.new("TextLabel", CurrencySection)
+CurrencyTitle.Size = UDim2.new(1, 0, 0, 24)
+CurrencyTitle.BackgroundTransparency = 1
+CurrencyTitle.Text = "Currency Tracker"
+CurrencyTitle.TextColor3 = Color3.fromRGB(255,255,255)
+CurrencyTitle.TextSize = 18
+CurrencyTitle.Font = Enum.Font.SourceSansBold
+
+local CurrencyOutput = Instance.new("TextLabel", CurrencySection)
+CurrencyOutput.Size = UDim2.new(1, -10, 1, -34)
+CurrencyOutput.Position = UDim2.new(0, 5, 0, 30)
+CurrencyOutput.BackgroundTransparency = 1
+CurrencyOutput.TextColor3 = Color3.fromRGB(200,200,200)
+CurrencyOutput.TextSize = 14
+CurrencyOutput.Font = Enum.Font.Code
+CurrencyOutput.TextXAlignment = Enum.TextXAlignment.Left
+CurrencyOutput.TextYAlignment = Enum.TextYAlignment.Top
+CurrencyOutput.TextWrapped = true
+CurrencyOutput.Text = "Warte auf erste Aktualisierung..."
+
+--// Currency Tracker Logik
+task.spawn(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local SaveModule = require(ReplicatedStorage.Framework.Modules.Client:WaitForChild("4 | Save"))
+    local SaveData = SaveModule.Get(LocalPlayer)
+
+    if not SaveData then
+        CurrencyOutput.Text = "❌ Kein SaveData gefunden!"
+        return
+    end
+
+    local currencies = {
+        "Coins",
+        "Tech Coins",
+        "Fantasy Coins",
+        "Rainbow Coins",
+        "Halloween Candy",
+        "Rng Coins",
+        "Gingerbread",
+        "Diamonds",
+    }
+
+    local lastValues = {}
+    for _, name in ipairs(currencies) do
+        lastValues[name] = SaveData[name] or 0
+    end
+
+    local perMinuteSums = {}
+    for _, name in ipairs(currencies) do
+        perMinuteSums[name] = 0
+    end
+
+    local function checkCurrencyChange()
+        local textLines = {"📈 Currency Änderungen pro Sekunde:"}
+        for _, name in ipairs(currencies) do
+            local old = lastValues[name] or 0
+            local new = SaveData[name] or 0
+            local diff = new - old
+            perMinuteSums[name] += diff
+            local symbol = diff > 0 and "▲" or (diff < 0 and "▼" or "•")
+            local perMinute = perMinuteSums[name] * 60
+            table.insert(textLines, string.format("%s %s: %+d  | ∼/min: %+d", symbol, name, diff, perMinute))
+            lastValues[name] = new
+        end
+        CurrencyOutput.Text = table.concat(textLines, "\n")
+    end
+
+    while task.wait(1) do
+        pcall(checkCurrencyChange)
+    end
+end)
+
+
 orbsToggle:SetCallback(function(enabled)
     local Workspace = game:GetService("Workspace")
     local Things = Workspace:WaitForChild("__THINGS")
@@ -2236,3 +2316,4 @@ end
 ShopTabButton.MouseButton1Click:Connect(function()
     showTab("Shop") 
 end)
+
