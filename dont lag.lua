@@ -1,4 +1,4 @@
--- Update 1
+-- Update 1.1
 
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
@@ -41,6 +41,7 @@ Label1.TextScaled = true
 Label1.Parent = Frame
 
 local TextBox1 = Instance.new("TextBox")
+TextBox1.Text = ""
 TextBox1.Size = UDim2.new(0, 180, 0, 35)
 TextBox1.Position = UDim2.new(0.5, -90, 0, 70)
 TextBox1.PlaceholderText = "Enter amount (e.g. 1000)"
@@ -74,6 +75,7 @@ Label2.TextScaled = true
 Label2.Parent = Frame
 
 local TextBox2 = Instance.new("TextBox")
+TextBox2.Text = ""
 TextBox2.Size = UDim2.new(0, 180, 0, 35)
 TextBox2.Position = UDim2.new(0.5, -90, 0, 195)
 TextBox2.PlaceholderText = "Enter amount (e.g. 100)"
