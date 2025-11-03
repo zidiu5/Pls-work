@@ -1,4 +1,4 @@
--- Update 1.2
+-- Update 1.1
 
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
@@ -149,7 +149,7 @@ Button2.MouseButton1Click:Connect(function()
 	local remote = Remotes:WaitForChild("buy diamondpack")
 	local args = {
 		{
-			{1},
+			{8},
 			{false}
 		}
 	}
