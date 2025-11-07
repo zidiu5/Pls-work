@@ -1,3 +1,5 @@
+-- V4
+
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zidiu5/library-test/refs/heads/main/library.lua"))()
 
 local Players = game:GetService("Players")
@@ -9,9 +11,13 @@ local COINS = THINGS:WaitForChild("Coins")
 local PETS = THINGS:WaitForChild("Pets")
 local ORBS = THINGS:WaitForChild("Orbs")
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local EGG_DIR = ReplicatedStorage:WaitForChild("__DIRECTORY"):WaitForChild("Eggs")
+
 local joinRemote = REMOTES:WaitForChild("join coin")
 local farmRemote = REMOTES:WaitForChild("farm coin")
 local claimOrbsRemote = REMOTES:WaitForChild("claim orbs")
+local buyEggRemote = REMOTES:WaitForChild("buy egg")
 
 local afterJoinDelay = 0.05
 
@@ -77,52 +83,69 @@ local function collectOrbs()
     end
 end
 
+local function hatchEgg(eggName, mode)
+    if not eggName then return end
+    local single, triple, octuple = false, false, false
+    if mode == "Single" then single = false triple = false octuple = false end
+    if mode == "Triple" then single = true triple = false octuple = false end
+    if mode == "Octuple" then single = false triple = true octuple = false end
+
+    local args = {
+        { eggName, single, triple }
+    }
+    pcall(function()
+        buyEggRemote:InvokeServer(unpack(args))
+    end)
+end
+
 -- === GUI ===
 local win = Library.new({title = "Autofarm GUI"})
 local mainTab = win:AddTab("Main")
 local farmTab = win:AddTab("Farm")
+local eggsTab = win:AddTab("Eggs")
 
 local selectedArea = nil
 local running = false
 local multiple = false
 local autoCollect = false
+local selectedFolder = nil
+local selectedEgg = nil
+local autoHatch = false
+local hatchMode = "Single"
 
 -- MAIN TAB
-local collectToggleId = select(1, win:AddToggle(mainTab, "Autocollect", false, function(state)
+win:AddToggle(mainTab, "Auto Collect", false, function(state)
     autoCollect = state
     if not autoCollect then return end
-
     task.spawn(function()
         while autoCollect do
             collectOrbs()
             task.wait(0.2)
         end
     end)
-end))
+end)
 
 -- FARM TAB
-local dropdownId = select(1, win:AddDropdown(farmTab, "Area wählen", collectAreas(), function(selected)
-    for k,v in pairs(selected) do
+local areaDropdown = select(1, win:AddDropdown(farmTab, "Select Area", collectAreas(), function(selected)
+    for k, v in pairs(selected) do
         if v then selectedArea = k end
     end
 end))
 
-local refreshBtnId = select(1, win:AddButton(farmTab, "🔄 Refresh Areas", function()
-    win:UpdateDropdown(dropdownId, collectAreas())
-end))
+win:AddButton(farmTab, "🔄 Refresh Areas", function()
+    win:UpdateDropdown(areaDropdown, collectAreas())
+end)
 
-local multipleToggleId = select(1, win:AddToggle(farmTab, "Multiple Farm", false, function(state)
+win:AddToggle(farmTab, "Multiple Farm", false, function(state)
     multiple = state
-end))
+end)
 
-local farmToggleId = select(1, win:AddToggle(farmTab, "Autofarm", false, function(state)
+win:AddToggle(farmTab, "Auto Farm", false, function(state)
     running = state
     if not running then return end
     if not selectedArea then return end
-
     local pets = myPets()
     if #pets == 0 then return end
-
     task.spawn(function()
         while running do
             local coins = coinsInArea(selectedArea)
@@ -130,7 +153,6 @@ local farmToggleId = select(1, win:AddToggle(farmTab, "Autofarm", false, functio
                 task.wait(0.3)
                 continue
             end
-
             if multiple then
                 for i, petId in ipairs(pets) do
                     if not running then break end
@@ -150,8 +172,7 @@ local farmToggleId = select(1, win:AddToggle(farmTab, "Autofarm", false, functio
                     for _, petId in ipairs(pets) do
                         safeFarm(coinId, petId)
                     end
-                    repeat
-                        task.wait(0.1)
+                    repeat task.wait(0.1)
                     until not COINS:FindFirstChild(coinId) or not running
                 else
                     task.wait(0.1)
@@ -159,4 +180,77 @@ local farmToggleId = select(1, win:AddToggle(farmTab, "Autofarm", false, functio
             end
         end
     end)
-end))
+end)
+
+-- EGGS TAB
+local eggDropdowns = {}
+local folderList = EGG_DIR:GetChildren()
+table.sort(folderList, function(a,b) return a.Name < b.Name end)
+
+for _, folder in pairs(folderList) do
+    local eggNames = {"None"}
+    for _, egg in pairs(folder:GetChildren()) do
+        table.insert(eggNames, egg.Name)
+    end
+    table.sort(eggNames)
+    local dropdownId = select(1, win:AddDropdown(eggsTab, folder.Name, eggNames, function(selected)
+        for k, v in pairs(selected) do
+            if v and k ~= "None" then
+                selectedFolder = folder
+                selectedEgg = k
+            elseif k == "None" then
+                if selectedFolder == folder then
+                    selectedFolder = nil
+                    selectedEgg = nil
+                end
+            end
+        end
+    end))
+    eggDropdowns[folder.Name] = dropdownId
+end
+
+local eggInfoId = select(1, win:AddLabel(eggsTab, "Select an Egg to view info"))
+local infoBtn = win:AddButton(eggsTab, "Egg Info", function()
+    if selectedFolder and selectedEgg then
+        local eggFolder = selectedFolder:FindFirstChild(selectedEgg)
+        if eggFolder then
+            local infoModule = eggFolder:FindFirstChild(selectedEgg)
+            if infoModule and infoModule:IsA("ModuleScript") then
+                local ok, data = pcall(require, infoModule)
+                if ok and type(data) == "table" then
+                    local text = string.format("Egg: %s\nHatchable: %s\nCost: %s\nCurrency: %s",
+                        selectedEgg, tostring(data.hatchable), tostring(data.cost), tostring(data.currency))
+                    win:UpdateLabel(eggInfoId, text)
+                end
+            end
+        end
+    else
+        win:UpdateLabel(eggInfoId, "No Egg Selected")
+    end
+end)
+
+win:AddButton(eggsTab, "Unselect All", function()
+    selectedFolder, selectedEgg = nil, nil
+    win:UpdateLabel(eggInfoId, "No Egg Selected")
+end)
+
+-- Hatch mode dropdown
+win:AddDropdown(eggsTab, "Hatch Mode", {"Single", "Triple", "Octuple"}, function(selected)
+    for k,v in pairs(selected) do
+        if v then hatchMode = k end
+    end
+end)
+
+-- Start hatch toggle
+win:AddToggle(eggsTab, "Start Hatch", false, function(state)
+    autoHatch = state
+    if not autoHatch then return end
+    task.spawn(function()
+        while autoHatch do
+            if selectedEgg then
+                hatchEgg(selectedEgg, hatchMode)
+            end
+            task.wait(0.5)
+        end
+    end)
+end)
