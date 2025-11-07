@@ -1,3 +1,4 @@
+-- farm coin, not ur_lame_xd
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -540,7 +541,7 @@ task.spawn(function()
                     local joinArgs = {{{coinId,{petId}},{false,false}}}
                     pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
                     local farmArgs = {{{coinId,petId},{false,false}}}
-                    pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
+                    pcall(function() workspace.__THINGS.__REMOTES["farm coin"]:FireServer(unpack(farmArgs)) end)
                 end
             end
         end
@@ -560,7 +561,7 @@ task.spawn(function()
                     local joinArgs = {{{coinId,{petId}},{false,false}}}
                     pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
                     local farmArgs = {{{coinId, petId},{false,false}}}
-                    pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
+                    pcall(function() workspace.__THINGS.__REMOTES["farm coin"]:FireServer(unpack(farmArgs)) end)
                 end
             end
         end
@@ -849,7 +850,7 @@ task.spawn(function()
                 pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
                 for _, petId in pairs(myPets) do
                     local farmArgs = {{{coin.Name, petId},{false,false}}}
-                    pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
+                    pcall(function() workspace.__THINGS.__REMOTES["farm coin"]:FireServer(unpack(farmArgs)) end)
                 end
             end
         end
@@ -867,7 +868,7 @@ task.spawn(function()
                 pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
                 for _, petId in pairs(myPets) do
                     local farmArgs = {{{coin.Name, petId},{false,false}}}
-                    pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
+                    pcall(function() workspace.__THINGS.__REMOTES["farm coin"]:FireServer(unpack(farmArgs)) end)
                 end
             end
         end
@@ -885,7 +886,7 @@ task.spawn(function()
                 pcall(function() workspace.__THINGS.__REMOTES["join coin"]:InvokeServer(unpack(joinArgs)) end)
                 for _, petId in pairs(myPets) do
                     local farmArgs = {{{coin.Name, petId},{false,false}}}
-                    pcall(function() workspace.__THINGS.__REMOTES["ur_lame_xd"]:FireServer(unpack(farmArgs)) end)
+                    pcall(function() workspace.__THINGS.__REMOTES["farm coin"]:FireServer(unpack(farmArgs)) end)
                 end
             end
         end
