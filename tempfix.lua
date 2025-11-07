@@ -1,4 +1,4 @@
--- V4
+-- PLS DONT EXPLODE
 
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zidiu5/library-test/refs/heads/main/library.lua"))()
 
@@ -21,6 +21,7 @@ local buyEggRemote = REMOTES:WaitForChild("buy egg")
 
 local afterJoinDelay = 0.05
 
+-- Helper functions
 local function getAttr(obj, name)
     local ok, v = pcall(function() return obj:GetAttribute(name) end)
     if ok and v ~= nil then return v end
@@ -85,14 +86,12 @@ end
 
 local function hatchEgg(eggName, mode)
     if not eggName then return end
-    local single, triple, octuple = false, false, false
-    if mode == "Single" then single = false triple = false octuple = false end
-    if mode == "Triple" then single = true triple = false octuple = false end
-    if mode == "Octuple" then single = false triple = true octuple = false end
+    local single, triple = false, false
+    if mode == "Single" then single, triple = false, false end
+    if mode == "Triple" then single, triple = true, false end
+    if mode == "Octuple" then single, triple = false, true end
 
-    local args = {
-        { eggName, single, triple }
-    }
+    local args = { { eggName, single, triple } }
     pcall(function()
         buyEggRemote:InvokeServer(unpack(args))
     end)
@@ -103,6 +102,7 @@ local win = Library.new({title = "Autofarm GUI"})
 local mainTab = win:AddTab("Main")
 local farmTab = win:AddTab("Farm")
 local eggsTab = win:AddTab("Eggs")
+local shopTab = win:AddTab("Shop")
 
 local selectedArea = nil
 local running = false
@@ -210,7 +210,7 @@ for _, folder in pairs(folderList) do
 end
 
 local eggInfoId = select(1, win:AddLabel(eggsTab, "Select an Egg to view info"))
-local infoBtn = win:AddButton(eggsTab, "Egg Info", function()
+win:AddButton(eggsTab, "Egg Info", function()
     if selectedFolder and selectedEgg then
         local eggFolder = selectedFolder:FindFirstChild(selectedEgg)
         if eggFolder then
@@ -254,3 +254,26 @@ win:AddToggle(eggsTab, "Start Hatch", false, function(state)
         end
     end)
 end)
+
+-- SHOP TAB
+local diamondPacks = {
+    {id = 1, text = "Diamond Pack 1 - 5B Coins"},
+    {id = 2, text = "Diamond Pack 2 - 17.5B Coins"},
+    {id = 3, text = "Diamond Pack 3 - 40B Fantasy Coins"},
+    {id = 4, text = "Diamond Pack 4 - 52.5M Tech Coins"}
+}
+
+for _, pack in ipairs(diamondPacks) do
+    win:AddToggle(shopTab, pack.text, false, function(state)
+        if not state then return end
+        task.spawn(function()
+            while state do
+                local args = { { pack.id } }
+                pcall(function()
+                    workspace:WaitForChild("__THINGS"):WaitForChild("__REMOTES"):WaitForChild("buy diamondpack"):InvokeServer(unpack(args))
+                end)
+                task.wait(1)
+            end
+        end)
+    end)
+end
