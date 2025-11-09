@@ -1,4 +1,4 @@
--- PLS DONT EXPLODE v2
+-- PLS DONT EXPLODE v2.1
 
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zidiu5/library-test/refs/heads/main/library.lua"))()
 
@@ -336,10 +336,10 @@ function createAutofarmGUI()
 
     -- SHOP TAB
     local diamondPacks = {
-        {id = 1, text = "Diamond Pack 1 - 5B Coins"},
-        {id = 2, text = "Diamond Pack 2 - 17.5B Coins"},
-        {id = 3, text = "Diamond Pack 3 - 40B Fantasy Coins"},
-        {id = 4, text = "Diamond Pack 4 - 52.5M Tech Coins"}
+        {id = 1, text = "Diamond Pack 1 - 3B Coins"},
+        {id = 2, text = "Diamond Pack 2 - 15B Fantasy Coins"},
+        {id = 3, text = "Diamond Pack 3 - 45M Tech Coins"},
+        {id = 4, text = "Diamond Pack 4 - 150M Tech Coins"}
     }
 
     for _, pack in ipairs(diamondPacks) do
