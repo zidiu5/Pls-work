@@ -101,7 +101,7 @@ local function BuildCube()
                 }
             }
             pcall(function() Remotes.PlaceBlockRemote:FireServer(unpack(args)) end)
-            task.wait(0.03) -- leichtes Throttling, damit Server nicht überfordert wird
+            task.wait(0.001)
         end
     end
 
@@ -118,7 +118,7 @@ local AutoCollect = false
 --// FLUENT GUI SETUP
 local Window = Library:CreateWindow{
     Title = `Fluent {Library.Version}`,
-    SubTitle = "by Actual Master Oogway",
+    SubTitle = "by Zidiu1",
     TabWidth = 160,
     Size = UDim2.fromOffset(830, 525), -- mobile-friendly but resizable
     Resize = true,
