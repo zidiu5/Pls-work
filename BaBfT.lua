@@ -139,7 +139,7 @@ end)
 --// FLUENT GUI SETUP
 local Window = Library:CreateWindow{
     Title = `Simple Hub {Library.Version}`,
-    SubTitle = "by YourName",
+    SubTitle = "by Zidiu1",
     TabWidth = 160,
     Size = UDim2.fromOffset(700, 450),
     Resize = true,
