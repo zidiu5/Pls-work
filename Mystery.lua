@@ -183,7 +183,7 @@ end
 refreshEggList()
 
 -- --- MAIN WINDOW SETUP ---
-local Window = ZidiuUI:CreateWindow("Gemini Hub | PSX Ultimate", "V3.0")
+local Window = ZidiuUI:CreateWindow("Sometimes those scripts pmo")
 
 -- --- TAB 1: FARMING ---
 local FarmTab = Window:CreateTab("Farming", "🚜")
