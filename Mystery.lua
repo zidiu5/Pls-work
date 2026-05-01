@@ -1,63 +1,41 @@
+-- --- [1. INITIAL SETUP & BEAUTIFIER] ---
 local Network = require(game:GetService("ReplicatedStorage"):WaitForChild("Library"):WaitForChild("Client"):WaitForChild("Network"))
 local shareddata = getupvalue(getupvalue(getrawmetatable(Network).__index, 1).Invoke, 2)
 
--- Die Hauptfunktion zum Umbenennen
 local function beautify()
-    -- Diese Upvalues holen wir uns bei jedem Durchgang frisch, 
-    -- falls das Spiel die Tabellen intern neu generiert.
     local hashstorage = getupvalue(getupvalue(shareddata, 2), 1)
     local remotestorage = getupvalue(getupvalue(shareddata, 1), 1)
-
-    -- 1. Schritt: Namen-Index erstellen (ID zu Klartext)
     local nameLookup = {}
     for i = 1, #hashstorage do
-        for name, id in next, hashstorage[i] do
-            nameLookup[id] = name
-        end
+        for name, id in next, hashstorage[i] do nameLookup[id] = name end
     end
-
-    -- 2. Schritt: Remotes umbenennen
     for i = 1, #remotestorage do
         for id, remoteObj in next, remotestorage[i] do
-            if nameLookup[id] then
-                -- Nur umbenennen, wenn der Name noch nicht stimmt
-                if remoteObj.Name ~= nameLookup[id] then
-                    remoteObj.Name = nameLookup[id]
-                end
+            if nameLookup[id] and remoteObj.Name ~= nameLookup[id] then
+                remoteObj.Name = nameLookup[id]
             end
         end
     end
 end
 
--- Der unendliche Loop
 task.spawn(function()
-    print("--- [Auto-Beautifier] Gestartet (Intervall: 5s) ---")
-    
     while true do
-        local success, err = pcall(beautify)
-        
-        if not success then
-            warn("--- [Auto-Beautifier] Fehler beim Umbenennen: " .. tostring(err))
-        end
-        
-        task.wait(5) -- Exakt 5 Sekunden Pause
+        pcall(beautify)
+        task.wait(5)
     end
 end)
 
-
-
--- Load ZidiuUI Library
-local ZidiuUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/musicmaker-web/ZidiuUI/refs/heads/main/ZidiuUI.lua"))()
-
--- --- SERVICES & VARIABLES ---
+-- --- [2. SERVICES & VARIABLES] ---
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
+local ZidiuUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/musicmaker-web/ZidiuUI/refs/heads/main/ZidiuUI.lua"))()
 
 -- Directories
 local directory = ReplicatedStorage:FindFirstChild("__DIRECTORY")
 local eggsRoot = directory and directory:FindFirstChild("Eggs")
 local petsFolder = directory and directory:FindFirstChild("Pets")
+local currencyModule = directory and directory:FindFirstChild("Currency") and directory.Currency:FindFirstChild("Grab All Currencies")
 
 local things = workspace:WaitForChild("__THINGS")
 local orbsFolder = things:WaitForChild("Orbs")
@@ -72,7 +50,7 @@ local farmRemote = ReplicatedStorage:WaitForChild("Farm Coin")
 local buyEggRemote = ReplicatedStorage:WaitForChild("Buy Egg")
 
 -- State Variables
-local autoCollectOrbs = false
+local infCoinsEnabled = false
 local autoFarmActive = false
 local autoHatchEnabled = false
 local farmMode = "Nearest" 
@@ -82,7 +60,10 @@ local selectedEgg = ""
 local hatchMode = "Single"
 local eggList = {}
 
--- --- HELPER FUNCTIONS ---
+-- Load Currency Data
+local CurrencyData = currencyModule and require(currencyModule) or {}
+
+-- --- [3. HELPER FUNCTIONS] ---
 
 local function formatNumber(n)
     n = tonumber(n) or 0
@@ -95,6 +76,47 @@ local function formatNumber(n)
     end
     return string.format("%.1f%s", n, suffixes[index]):gsub("%.0", "")
 end
+
+-- INF COINS LOGIC
+local function getCurrencyTypeFromOrb(orb)
+    local item = orb:FindFirstChild("Item", true)
+    if not item or not (item:IsA("Decal") or item:IsA("ImageLabel")) then return nil end
+    local orbImage = item.Image
+    for name, info in pairs(CurrencyData) do
+        if info.ImageTiny == orbImage or info.Image == orbImage then return name end
+    end
+    return nil
+end
+
+local function claimAllOrbs()
+    if not infCoinsEnabled then return end
+    local children = orbsFolder:GetChildren()
+    if #children == 0 then return end
+
+    local orbBatch = {}
+    for _, orb in ipairs(children) do
+        local cType = getCurrencyTypeFromOrb(orb)
+        if cType then
+            table.insert(orbBatch, {
+                type = cType,
+                ids = {orb.Name},
+                amount = 100000000000000
+            })
+            orb:Destroy()
+        end
+    end
+    if #orbBatch > 0 then
+        claimRemote:FireServer(orbBatch)
+    end
+end
+
+-- Event Connection für Orbs
+orbsFolder.ChildAdded:Connect(function()
+    if infCoinsEnabled then
+        task.wait()
+        claimAllOrbs()
+    end
+end)
 
 local function getDetailedPetStats(targetID)
     targetID = tonumber(targetID)
@@ -182,10 +204,10 @@ end
 -- Initialize Data
 refreshEggList()
 
--- --- MAIN WINDOW SETUP ---
-local Window = ZidiuUI:CreateWindow("Sometimes those scripts pmo")
+-- --- [4. MAIN WINDOW SETUP] ---
+local Window = ZidiuUI:CreateWindow("Lemme cook")
 
--- --- TAB 1: FARMING ---
+-- TAB: FARMING & EXPLOIT
 local FarmTab = Window:CreateTab("Farming", "🚜")
 local ConfigSec = FarmTab:CreateSection("Auto Farm Engine")
 
@@ -195,23 +217,19 @@ end)
 
 ConfigSec:CreateMultiDropdown("Select Farm Areas", getAllAreas(), function(selectedTable)
     selectedAreas = selectedTable
-    ZidiuUI:Notify("Areas updated!", "info", 2)
 end)
 
 ConfigSec:CreateDropdown("Farm Priority", {"Nearest", "Lowest Health", "Highest Health"}, function(val)
     farmMode = val
 end)
 
-ConfigSec:CreateDropdown("Targeting Mode", {"Multi-Target", "Single-Target"}, function(val)
-    targetMode = val
+local ExploitSec = FarmTab:CreateSection("Currency Exploit")
+ExploitSec:CreateToggle("Inf Coins (New and Tuff)", false, function(state)
+    infCoinsEnabled = state
+    if state then claimAllOrbs() end
 end)
 
-local MiscSec = FarmTab:CreateSection("Automation")
-MiscSec:CreateToggle("Auto Collect Orbs", false, function(state)
-    autoCollectOrbs = state
-end)
-
--- --- TAB 2: AUTO-HATCH ---
+-- TAB: AUTO-HATCH
 local HatchTab = Window:CreateTab("Auto-Hatch", "🥚")
 local HatchSec = HatchTab:CreateSection("Egg Settings")
 
@@ -220,10 +238,8 @@ local EggDropdown = HatchSec:CreateSearchDropdown("Search Egg...", eggList, func
     selectedEgg = selected
 end)
 
-HatchSec:CreateLabel("2. Select Hatch Mode:")
 HatchSec:CreateDropdown("Hatch Mode", {"Single", "Triple", "Octuple"}, function(selected)
     hatchMode = selected
-    ZidiuUI:Notify("Mode changed to: " .. selected, "info", 2)
 end)
 
 HatchSec:CreateToggle("Start Auto Hatch", false, function(state)
@@ -240,7 +256,7 @@ HatchSec:CreateButton("Reload Egg List", function()
     ZidiuUI:Notify("List updated!", "success", 2)
 end)
 
--- --- TAB 3: SCANNER ---
+-- TAB: SCANNER
 local ScanTab = Window:CreateTab("Scanner", "🔍")
 local SearchSection = ScanTab:CreateSection("Egg & Pet Database")
 
@@ -248,7 +264,6 @@ local InfoWindow = SearchSection:CreateExLabel("Scan Results", "Search for an eg
 
 SearchSection:CreateButton("Open Detailed Results", function()
     InfoWindow:Open()
-    InfoWindow:Focus()
 end)
 
 SearchSection:CreateTextbox("Egg Name (e.g. Pixel Egg)", "Enter name...", function(input)
@@ -283,7 +298,7 @@ SearchSection:CreateTextbox("Egg Name (e.g. Pixel Egg)", "Enter name...", functi
                                 infoText = infoText .. string.format("[%s] %s (%s)\n   └ Str: %s - %s\n\n", 
                                     pStr, stats.name, stats.rarity, formatNumber(stats.min), formatNumber(stats.max))
                             else
-                                infoText = infoText .. string.format("[%s] ID: %s (N/A)\n\n", pStr, tostring(d[1]))
+                                infoText = infoText .. string.format("[%s] ID: %s\n\n", pStr, tostring(d[1]))
                             end
                         end
                     end
@@ -298,22 +313,7 @@ SearchSection:CreateTextbox("Egg Name (e.g. Pixel Egg)", "Enter name...", functi
     if not found then ZidiuUI:Notify("Egg not found!", "error", 3) end
 end)
 
--- --- BACKGROUND LOOPS ---
-
--- Orb Collector Loop
-task.spawn(function()
-    while true do
-        if autoCollectOrbs then
-            local children = orbsFolder:GetChildren()
-            if #children > 0 then
-                local ids = {}
-                for i = 1, #children do ids[i] = children[i].Name end
-                claimRemote:FireServer(ids)
-            end
-        end
-        task.wait(0.1)
-    end
-end)
+-- --- [5. BACKGROUND LOOPS] ---
 
 -- Auto Farm Loop
 task.spawn(function()
@@ -323,22 +323,12 @@ task.spawn(function()
             local sortedCoins = getSortedCoins()
 
             if #myPets > 0 and #sortedCoins > 0 then
-                if targetMode == "Single-Target" then
-                    local targetId = sortedCoins[1].id
-                    for _, petId in ipairs(myPets) do
-                        task.spawn(function()
-                            joinRemote:InvokeServer(targetId, {petId})
-                            farmRemote:FireServer(targetId, petId)
-                        end)
-                    end
-                else
-                    for i, petId in ipairs(myPets) do
-                        local targetId = sortedCoins[((i - 1) % #sortedCoins) + 1].id
-                        task.spawn(function()
-                            joinRemote:InvokeServer(targetId, {petId})
-                            farmRemote:FireServer(targetId, petId)
-                        end)
-                    end
+                for i, petId in ipairs(myPets) do
+                    local targetId = sortedCoins[((i - 1) % #sortedCoins) + 1].id
+                    task.spawn(function()
+                        joinRemote:InvokeServer(targetId, {petId})
+                        farmRemote:FireServer(targetId, petId)
+                    end)
                 end
             end
         end
@@ -358,14 +348,10 @@ task.spawn(function()
             elseif hatchMode == "Octuple" then
                 args = {selectedEgg, false, true, true}
             end
-            
-            pcall(function()
-                buyEggRemote:InvokeServer(unpack(args))
-            end)
+            pcall(function() buyEggRemote:InvokeServer(unpack(args)) end)
         end
         task.wait(0.1)
     end
 end)
 
-ZidiuUI:Notify("Gemini Hub Loaded Successfully!", "success", 5)
-
+ZidiuUI:Notify("ZidiuUI Fully Loaded!", "success", 5)
