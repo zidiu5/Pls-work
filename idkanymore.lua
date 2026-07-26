@@ -1,5 +1,5 @@
 -- ==================== REMOTE RENAMER (LOOP) ====================
--- Holy AI Comments
+
 local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
 
 local function getUpvalueSafe(func, index)
@@ -10,7 +10,6 @@ end
 local function renameRemotes()
     local fireFunc = Network.Fire
 
-    -- Upvalues extrahieren
     local u39 = getUpvalueSafe(fireFunc, 2)
     if not u39 then return end
 
@@ -63,15 +62,16 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "Pet Simulator - Custom Autofarm",
    LoadingTitle = "Pet Simulator Script",
-   LoadingSubtitle = "by Assistant",
+   LoadingSubtitle = "by Me",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false
 })
 
 local MainTab = Window:CreateTab("Main", 4483362458)
 local FarmTab = Window:CreateTab("Farm", 4483362458)
+local EggsTab = Window:CreateTab("Eggs", 4483362458)
 
--- Services
+-- Services & Folders
 local Services = {
     Players = game:GetService("Players"),
     ReplicatedStorage = game:GetService("ReplicatedStorage"),
@@ -84,13 +84,23 @@ local PetsFolder = Things:WaitForChild("Pets")
 local CoinsFolder = Things:WaitForChild("Coins")
 local OrbsFolder = Things:WaitForChild("Orbs")
 
--- Remotes werden dynamisch aus ReplicatedStorage geholt (Name wurde durch Renamer gefixt)
+local Directory = Services.ReplicatedStorage:WaitForChild("__DIRECTORY")
+local EggDir = Directory:WaitForChild("Eggs")
+
+-- Dynamic Remotes
 local function getJoinRemote()
     return Services.ReplicatedStorage:FindFirstChild("Join Coin")
 end
 
 local function getFarmRemote()
     return Services.ReplicatedStorage:FindFirstChild("Farm Coin")
+end
+
+local function getBuyEggRemote()
+    -- Sucht entweder nach dem umbenannten Name oder nach der Standard RemoteFunction
+    return Services.ReplicatedStorage:FindFirstChild("buy egg") 
+        or Services.ReplicatedStorage:FindFirstChild("Buy Egg") 
+        or Services.ReplicatedStorage:FindFirstChild("RemoteFunction")
 end
 
 -- Variables
@@ -101,7 +111,12 @@ local multipleFarm = false
 local selectedArea = nil
 local afterJoinDelay = 0.05
 
--- Helper: Attributes/Values auslesen
+local selectedFolder = nil
+local selectedEgg = nil
+local autoHatch = false
+local hatchMode = "Single"
+
+-- Helper Functions
 local function getAttr(obj, name)
     local ok, v = pcall(function() return obj:GetAttribute(name) end)
     if ok and v ~= nil then return v end
@@ -110,7 +125,6 @@ local function getAttr(obj, name)
     return nil
 end
 
--- Helper: Hole das RootPart des Spielers
 local function getRootPart()
     local char = LocalPlayer.Character
     if char then
@@ -119,7 +133,6 @@ local function getRootPart()
     return nil
 end
 
--- Helper: Meine Pets abrufen
 local function getMyPets()
     local myPets = {}
     for _, pet in ipairs(PetsFolder:GetChildren()) do
@@ -131,7 +144,6 @@ local function getMyPets()
     return myPets
 end
 
--- Helper: Alle Areas sammeln
 local function collectAreas()
     local set = {}
     for _, c in pairs(CoinsFolder:GetChildren()) do
@@ -145,7 +157,6 @@ local function collectAreas()
     return t
 end
 
--- Helper: Coins in bestimmter Area holen
 local function coinsInArea(area)
     local out = {}
     for _, c in pairs(CoinsFolder:GetChildren()) do
@@ -156,7 +167,6 @@ local function coinsInArea(area)
     return out
 end
 
--- Helper: Nächstgelegene Coin finden
 local function getClosestCoin()
     local rootPart = getRootPart()
     if not rootPart then return nil end
@@ -179,7 +189,6 @@ local function getClosestCoin()
     return closestCoin
 end
 
--- Safely Executing Remotes
 local function safeInvokeJoin(coinId, pets)
     local joinRemote = getJoinRemote()
     if joinRemote then
@@ -341,6 +350,113 @@ FarmTab:CreateToggle({
                         task.wait(0.1)
                     end
                 end
+            end
+        end)
+    end
+})
+
+
+-- ==================== EGGS TAB ====================
+
+local folderList = EggDir:GetChildren()
+table.sort(folderList, function(a,b) return a.Name < b.Name end)
+
+for _, folder in pairs(folderList) do
+    local eggNames = {"None"}
+    for _, egg in pairs(folder:GetChildren()) do
+        table.insert(eggNames, egg.Name)
+    end
+    table.sort(eggNames)
+
+    EggsTab:CreateDropdown({
+        Name = folder.Name,
+        Options = eggNames,
+        CurrentOption = {"None"},
+        Callback = function(Option)
+            local val = type(Option) == "table" and Option[1] or Option
+            if val and val ~= "None" then
+                selectedFolder = folder
+                selectedEgg = val
+            elseif val == "None" then
+                if selectedFolder == folder then
+                    selectedFolder = nil
+                    selectedEgg = nil
+                end
+            end
+        end
+    })
+end
+
+local eggInfoParagraph = EggsTab:CreateParagraph({Title = "Egg Info", Content = "Select an Egg to view info"})
+
+EggsTab:CreateButton({
+    Name = "Egg Info",
+    Callback = function()
+        if selectedFolder and selectedEgg then
+            local eggFolder = selectedFolder:FindFirstChild(selectedEgg)
+            if eggFolder then
+                local infoModule = eggFolder:FindFirstChild(selectedEgg)
+                if infoModule and infoModule:IsA("ModuleScript") then
+                    local ok, data = pcall(require, infoModule)
+                    if ok and type(data) == "table" then
+                        local text = string.format("Egg: %s\nHatchable: %s\nCost: %s\nCurrency: %s",
+                            selectedEgg, tostring(data.hatchable), tostring(data.cost), tostring(data.currency))
+                        eggInfoParagraph:Set({Title = "Egg Info", Content = text})
+                    end
+                end
+            end
+        else
+            eggInfoParagraph:Set({Title = "Egg Info", Content = "No Egg Selected"})
+        end
+    end
+})
+
+EggsTab:CreateButton({
+    Name = "Unselect All",
+    Callback = function()
+        selectedFolder, selectedEgg = nil, nil
+        eggInfoParagraph:Set({Title = "Egg Info", Content = "No Egg Selected"})
+    end
+})
+
+EggsTab:CreateDropdown({
+    Name = "Hatch Mode",
+    Options = {"Single", "Triple", "Octuple"},
+    CurrentOption = {"Single"},
+    Callback = function(Option)
+        hatchMode = type(Option) == "table" and Option[1] or Option
+    end
+})
+
+EggsTab:CreateToggle({
+    Name = "Start Hatch",
+    CurrentValue = false,
+    Flag = "AutoHatchToggle",
+    Callback = function(state)
+        autoHatch = state
+        if not autoHatch then return end
+
+        task.spawn(function()
+            while autoHatch do
+                if selectedEgg then
+                    local arg2, arg3, arg4 = false, false, false
+                    
+                    if hatchMode == "Single" then
+                        arg2, arg3, arg4 = false, false, false
+                    elseif hatchMode == "Triple" then
+                        arg2, arg3, arg4 = true, false, false
+                    elseif hatchMode == "Octuple" then
+                        arg2, arg3, arg4 = false, true, true
+                    end
+                    
+                    local eggRemote = getBuyEggRemote()
+                    if eggRemote then
+                        pcall(function() 
+                            eggRemote:InvokeServer(selectedEgg, arg2, arg3, arg4) 
+                        end)
+                    end
+                end
+                task.wait(0.5)
             end
         end)
     end
