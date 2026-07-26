@@ -62,7 +62,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "Pet Simulator - Custom Autofarm",
    LoadingTitle = "Pet Simulator Script",
-   LoadingSubtitle = "by Me",
+   LoadingSubtitle = "by Local himself",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false
 })
@@ -83,6 +83,7 @@ local Things = workspace:WaitForChild("__THINGS")
 local PetsFolder = Things:WaitForChild("Pets")
 local CoinsFolder = Things:WaitForChild("Coins")
 local OrbsFolder = Things:WaitForChild("Orbs")
+local LootbagsFolder = Things:WaitForChild("Lootbags")
 
 local Directory = Services.ReplicatedStorage:WaitForChild("__DIRECTORY")
 local EggDir = Directory:WaitForChild("Eggs")
@@ -96,8 +97,17 @@ local function getFarmRemote()
     return Services.ReplicatedStorage:FindFirstChild("Farm Coin")
 end
 
+local function getClaimOrbsRemote()
+    return Services.ReplicatedStorage:FindFirstChild("Claim Orbs") 
+        or Services.ReplicatedStorage:FindFirstChild("claim orbs")
+end
+
+local function getCollectLootbagRemote()
+    return Services.ReplicatedStorage:FindFirstChild("Collect Lootbag") 
+        or Services.ReplicatedStorage:FindFirstChild("collect lootbag")
+end
+
 local function getBuyEggRemote()
-    -- Sucht entweder nach dem umbenannten Name oder nach der Standard RemoteFunction
     return Services.ReplicatedStorage:FindFirstChild("buy egg") 
         or Services.ReplicatedStorage:FindFirstChild("Buy Egg") 
         or Services.ReplicatedStorage:FindFirstChild("RemoteFunction")
@@ -105,6 +115,7 @@ end
 
 -- Variables
 local autoOrbsEnabled = false
+local autoLootbagsEnabled = false
 local autoFarmRunning = false
 local farmMode = "Closest Coin" 
 local multipleFarm = false
@@ -204,37 +215,43 @@ local function safeFarm(coinId, petId)
 end
 
 
--- ==================== MAIN TAB (ORBS TP) ====================
+-- ==================== MAIN TAB (ORBS & LOOTBAGS) ====================
 
-local function tpOrb(orb)
-    local rootPart = getRootPart()
-    if not rootPart then return end
+local function collectOrbs()
+    local claimOrbsRemote = getClaimOrbsRemote()
+    if not claimOrbsRemote then return end
 
-    local basePos = rootPart.Position + Vector3.new(0, 3, 0)
-    local offset = Vector3.new(
-        math.random(-3, 3),
-        math.random(-1, 2),
-        math.random(-3, 3)
-    )
+    local orbPayload = {}
 
-    if orb:IsA("BasePart") then
-        orb.CFrame = CFrame.new(basePos + offset)
-    elseif orb:IsA("Model") then
-        local primary = orb.PrimaryPart or orb:FindFirstChildWhichIsA("BasePart")
-        if primary then
-            orb:SetPrimaryPartCFrame(CFrame.new(basePos + offset))
-        end
+    for _, orb in ipairs(OrbsFolder:GetChildren()) do
+        table.insert(orbPayload, {
+            ["ids"] = {
+                [1] = orb.Name
+            }
+        })
+    end
+
+    if #orbPayload > 0 then
+        pcall(function()
+            claimOrbsRemote:FireServer(orbPayload)
+        end)
     end
 end
 
-OrbsFolder.ChildAdded:Connect(function(child)
-    if autoOrbsEnabled then
-        tpOrb(child)
+local function collectLootbags()
+    local collectLootbagRemote = getCollectLootbagRemote()
+    if not collectLootbagRemote then return end
+
+    for _, bag in ipairs(LootbagsFolder:GetChildren()) do
+        pcall(function()
+            local pos = bag:IsA("BasePart") and bag.Position or Vector3.new(0, 0, 0)
+            collectLootbagRemote:FireServer(bag.Name, pos)
+        end)
     end
-end)
+end
 
 MainTab:CreateToggle({
-   Name = "Auto TP Orbs",
+   Name = "Auto Claim Orbs",
    CurrentValue = false,
    Flag = "AutoOrbsToggle",
    Callback = function(Value)
@@ -242,10 +259,25 @@ MainTab:CreateToggle({
        if autoOrbsEnabled then
            task.spawn(function()
                while autoOrbsEnabled do
-                   for _, orb in pairs(OrbsFolder:GetChildren()) do
-                       tpOrb(orb)
-                   end
-                   task.wait(0.3)
+                   collectOrbs()
+                   task.wait(0.1)
+               end
+           end)
+       end
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "Auto Collect Lootbags",
+   CurrentValue = false,
+   Flag = "AutoLootbagsToggle",
+   Callback = function(Value)
+       autoLootbagsEnabled = Value
+       if autoLootbagsEnabled then
+           task.spawn(function()
+               while autoLootbagsEnabled do
+                   collectLootbags()
+                   task.wait(0.1)
                end
            end)
        end
