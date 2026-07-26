@@ -1,4 +1,4 @@
--- ==================== REMOTE RENAMER (LOOP) ====================
+-- ==================== REMOTE RENAMER (ONCE AT START) ====================
 
 local Network = require(game:GetService("ReplicatedStorage").Library.Client.Network)
 
@@ -8,51 +8,48 @@ local function getUpvalueSafe(func, index)
 end
 
 local function renameRemotes()
+    -- 1. Lokale Umbenennungs-Logik
     local fireFunc = Network.Fire
-
     local u39 = getUpvalueSafe(fireFunc, 2)
-    if not u39 then return end
 
-    local u35 = getUpvalueSafe(u39, 1)
-    local u19 = getUpvalueSafe(u39, 2)
-    if not u35 or not u19 then return end
+    if u39 then
+        local u35 = getUpvalueSafe(u39, 1)
+        local u19 = getUpvalueSafe(u39, 2)
 
-    local u20 = getUpvalueSafe(u35, 1)
-    local u3 = getUpvalueSafe(u19, 1)
-    if not u20 or not u3 then return end
+        if u35 and u19 then
+            local u20 = getUpvalueSafe(u35, 1)
+            local u3 = getUpvalueSafe(u19, 1)
 
-    local renamedCount = 0
+            if u20 and u3 then
+                for typ = 1, 2 do
+                    local nameToHash = u3[typ]
+                    local hashToRemote = u20[typ]
 
-    for typ = 1, 2 do
-        local nameToHash = u3[typ]
-        local hashToRemote = u20[typ]
+                    if nameToHash and hashToRemote then
+                        for origName, hash in pairs(nameToHash) do
+                            local remote = hashToRemote[hash]
+                            if not remote then
+                                remote = game:GetService("ReplicatedStorage"):FindFirstChild(hash)
+                            end
 
-        if nameToHash and hashToRemote then
-            for origName, hash in pairs(nameToHash) do
-                local remote = hashToRemote[hash]
-                if not remote then
-                    remote = game:GetService("ReplicatedStorage"):FindFirstChild(hash)
-                end
-
-                if remote and remote.Name ~= origName then
-                    remote.Name = origName
-                    renamedCount = renamedCount + 1
+                            if remote and remote.Name ~= origName then
+                                remote.Name = origName
+                            end
+                        end
+                    end
                 end
             end
         end
     end
+
+    -- 2. Externes Skript ausführen (GitHub)
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/zidiu5/Pls-work/refs/heads/main/Rename.lua"))()
+    end)
 end
 
--- Einmalig vor dem UI-Start ausführen
+-- Nur einmalig beim Starten des Skripts ausführen
 renameRemotes()
-
--- Alle 3 Sekunden im Hintergrund ausführen
-task.spawn(function()
-    while true do
-        task.wait(3)
-        pcall(renameRemotes)
-    end
-end)
 
 
 -- ==================== RAYFIELD UI & MAIN SCRIPT ====================
@@ -60,9 +57,9 @@ end)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Pet Simulator - Custom Autofarm",
-   LoadingTitle = "Pet Simulator Script",
-   LoadingSubtitle = "by Local himself",
+   Name = "Obama Simulator",
+   LoadingTitle = "Obama Simulator Script",
+   LoadingSubtitle = "by Obama",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false
 })
