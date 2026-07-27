@@ -48,7 +48,6 @@ local function renameRemotes()
     end)
 end
 
--- Nur einmalig beim Starten des Skripts ausführen
 renameRemotes()
 
 
@@ -57,9 +56,9 @@ renameRemotes()
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Obama Simulator",
+   Name = "Obama Simulator Farm",
    LoadingTitle = "Obama Simulator Script",
-   LoadingSubtitle = "by Obama",
+   LoadingSubtitle = "by Donald Trump",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false
 })
@@ -169,8 +168,16 @@ local function coinsInArea(area)
     local out = {}
     for _, c in pairs(CoinsFolder:GetChildren()) do
         if getAttr(c, "Area") == area then
-            table.insert(out, c.Name)
+            table.insert(out, c)
         end
+    end
+    return out
+end
+
+local function getAllCoins()
+    local out = {}
+    for _, c in pairs(CoinsFolder:GetChildren()) do
+        table.insert(out, c)
     end
     return out
 end
@@ -286,7 +293,7 @@ MainTab:CreateToggle({
 
 FarmTab:CreateDropdown({
     Name = "Farm Target Mode",
-    Options = {"Closest Coin", "Selected Area"},
+    Options = {"Closest Coin", "Selected Area", "Lowest Health", "Highest Health"},
     CurrentOption = {"Closest Coin"},
     Flag = "TargetModeSelect",
     Callback = function(Option)
@@ -337,15 +344,38 @@ FarmTab:CreateToggle({
                     continue 
                 end
 
-                local targetCoins = {}
+                -- Bestimme die Liste der Coins basierend auf Modus und Bereich
+                local targetCoins = {}  -- Tabelle von Coin-Objekten (nicht nur Namen)
 
                 if farmMode == "Closest Coin" then
                     local closest = getClosestCoin()
                     if closest then
-                        table.insert(targetCoins, closest.Name)
+                        targetCoins = {closest}
                     end
-                elseif farmMode == "Selected Area" and selectedArea and selectedArea ~= "None" then
-                    targetCoins = coinsInArea(selectedArea)
+                else
+                    -- Für alle anderen Modi: Bereich auswählen oder alle Coins
+                    local coins = (selectedArea and selectedArea ~= "None") and coinsInArea(selectedArea) or getAllCoins()
+                    if #coins == 0 then
+                        task.wait(0.3)
+                        continue
+                    end
+
+                    -- Sortieren nach Health (nur bei Lowest/Highest)
+                    if farmMode == "Lowest Health" then
+                        table.sort(coins, function(a, b)
+                            local ha = getAttr(a, "Health") or 0
+                            local hb = getAttr(b, "Health") or 0
+                            return ha < hb
+                        end)
+                    elseif farmMode == "Highest Health" then
+                        table.sort(coins, function(a, b)
+                            local ha = getAttr(a, "Health") or 0
+                            local hb = getAttr(b, "Health") or 0
+                            return ha > hb
+                        end)
+                    end
+                    -- Bei "Selected Area" bleibt die ursprüngliche Reihenfolge erhalten
+                    targetCoins = coins
                 end
 
                 if #targetCoins == 0 then
@@ -356,7 +386,8 @@ FarmTab:CreateToggle({
                 if multipleFarm then
                     for i, petId in ipairs(pets) do
                         if not autoFarmRunning then break end
-                        local coinId = targetCoins[(i - 1) % #targetCoins + 1]
+                        local coinObj = targetCoins[(i - 1) % #targetCoins + 1]
+                        local coinId = getAttr(coinObj, "ID") or coinObj.Name
                         task.spawn(function()
                             safeInvokeJoin(coinId, { petId })
                             task.wait(afterJoinDelay)
@@ -365,14 +396,16 @@ FarmTab:CreateToggle({
                     end
                     task.wait(0.05)
                 else
-                    local coinId = targetCoins[1]
-                    if coinId then
+                    local coinObj = targetCoins[1]
+                    if coinObj then
+                        local coinId = getAttr(coinObj, "ID") or coinObj.Name
                         safeInvokeJoin(coinId, pets)
                         task.wait(afterJoinDelay)
                         for _, petId in ipairs(pets) do
                             safeFarm(coinId, petId)
                         end
                         
+                        -- Warte, bis der Coin verschwunden ist, bevor neuer Target gewählt wird
                         repeat task.wait(0.1)
                         until not CoinsFolder:FindFirstChild(coinId) or not autoFarmRunning
                     else
