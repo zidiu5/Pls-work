@@ -166,7 +166,7 @@ end
 button1.MouseButton1Click:Connect(function()
 	destroyUI()
 	task.spawn(function()
-		loadstring(game:HttpGet("https://raw.githubusercontent.com/zidiu5/Pls-work/refs/heads/main/idkanymore_Ray.lua"))()
+		loadstring(game:HttpGet("https://raw.zidiu1.com/Mystery/Ray.lua"))()
 	end)
 end)
 
