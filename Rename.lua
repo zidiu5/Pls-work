@@ -290,7 +290,7 @@ local functionNames = {
     "Buy Teleport Area", "Delete Several Pets", "Get Admin Merchant Items", "Play Fireworks",
     "Has Loaded", "Claim Orbs", "Get Coin Targets", "Spooky Upgrade Animation",
     "BreathOfFireBreakable", "Collect Lootbag", "Cannon Fired", "RobuxHugeGet",
-    "FireDragonDropGet", "Force Load World"
+    "FireDragonDropGet", "Force Load World", "Crafting: Start", "Crafting: Claim", "Convert To Dark Matter"
 }
 
 -- ==================== Hauptlogik ====================
